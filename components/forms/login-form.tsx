@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { IconoGitHub } from "@/components/icons/IconoGitHub"
 import { IconoGoogle } from "@/components/icons/IconoGoogle"
+import Image from "next/image"
 
 export function LoginForm({
     className,
@@ -36,7 +37,7 @@ export function LoginForm({
                                     <Label htmlFor="password">Password</Label>
                                     <a
                                         href="#"
-                                        className="ml-auto text-sm underline-offset-2 hover:underline"
+                                        className="ml-aut text-sm underline-offset-2 hover:underline"
                                     >
                                         Forgot your password?
                                     </a>
@@ -70,11 +71,14 @@ export function LoginForm({
                         </div>
                     </form>
                     <div className="bg-muted relative hidden md:block">
-                        <img
-                            src="/placeholder.svg"
-                            alt="Image"
-                            className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+                        <Image
+                            src="/images/login-illustration.svg"
+                            alt="Login Illustration"
+                            width={500}
+                            height={500}
+                            className="absolute inset-0 h-full w-full object-cover"
                         />
+
                     </div>
                 </CardContent>
             </Card>
