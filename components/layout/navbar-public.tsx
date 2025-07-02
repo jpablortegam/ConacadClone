@@ -6,6 +6,7 @@ import { ModeToggle } from '../ui/mode-toggle'
 import { Button } from '../ui/button'
 import { motion, AnimatePresence, Variants, cubicBezier } from 'framer-motion'
 
+
 export default function NavbarPublic() {
     const [scrolled, setScrolled] = useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -162,10 +163,10 @@ export default function NavbarPublic() {
                         onClick={closeMenu}
                     >
                         {/* Contenedor posicionado en la esquina superior derecha */}
-                        <div className="absolute top-4 right-4">
+                        <div className="absolute top-6 right-6">
                             <motion.div
                                 variants={modalVariants}
-                                className="bg-primary-foreground/95 backdrop-blur-md rounded-2xl p-6 w-64 shadow-2xl border border-border/50"
+                                className="bg-primary-foreground/95 backdrop-blur-md rounded-2xl p-16 w-90 shadow-2xl border border-border/50"
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
                                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)'
@@ -188,8 +189,9 @@ export default function NavbarPublic() {
                                         <Link href="/login" onClick={closeMenu} className="block">
                                             <Button
                                                 variant="ghost"
-                                                className="w-full justify-start h-12 text-left hover:bg-accent/50 transition-colors"
+                                                className="w-full justify-center h-12 text-left hover:bg-accent/50 transition-colors"
                                             >
+
                                                 Iniciar Sesión
                                             </Button>
                                         </Link>
@@ -203,16 +205,6 @@ export default function NavbarPublic() {
                                             </Button>
                                         </Link>
                                     </motion.div>
-                                </motion.div>
-
-                                {/* Indicador visual */}
-                                <motion.div
-                                    variants={itemVariants}
-                                    className="mt-4 pt-4 border-t border-border/50"
-                                >
-                                    <div className="flex justify-center">
-                                        <div className="w-8 h-1 bg-border rounded-full" />
-                                    </div>
                                 </motion.div>
                             </motion.div>
                         </div>

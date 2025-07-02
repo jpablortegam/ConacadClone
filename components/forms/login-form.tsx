@@ -1,3 +1,5 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -6,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { IconoGitHub } from "@/components/icons/IconoGitHub"
 import { IconoGoogle } from "@/components/icons/IconoGoogle"
 import Image from "next/image"
+import { signInWithGitHub } from "@/auth"
+import { signInWithGoogle } from "@/auth"
 
 export function LoginForm({
     className,
@@ -53,11 +57,11 @@ export function LoginForm({
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Button variant="outline" type="button" className="w-full">
+                                <Button variant="outline" type="button" className="w-full" onClick={() => signInWithGoogle()}>
                                     <IconoGoogle className="w-5 h-5" />
                                     <span className="sr-only">Login with Google</span>
                                 </Button>
-                                <Button variant="outline" type="button" className="w-full">
+                                <Button variant="outline" type="button" className="w-full" onClick={() => signInWithGitHub()}>
                                     <IconoGitHub className="w-5 h-5" />
                                     <span className="sr-only">Login with GitHub</span>
                                 </Button>
