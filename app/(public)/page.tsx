@@ -18,27 +18,10 @@ export default function Home() {
         <div className="mt-8">
           <h2 className="text-2xl font-bold mb-4">Contenido adicional</h2>
           <p className="text-lg text-secondary-foreground">
-            Aquí puedes agregar más contenido o componentes según sea necesario.
+            Aquí puedes ihoihoihcoihoihsoihoi más contenido o componentes según sea necesario.
           </p>
         </div>
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Contenido adicional</h2>
-          <p className="text-lg text-secondary-foreground">
-            Aquí puedes agregar más contenido o componentes según sea necesario.
-          </p>
-        </div>
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Contenido adicional</h2>
-          <p className="text-lg text-secondary-foreground">
-            Aquí puedes agregar más contenido o componentes según sea necesario.
-          </p>
-        </div>
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Contenido adicional</h2>
-          <p className="text-lg text-secondary-foreground">
-            Aquí puedes agregar más contenido o componentes según sea necesario.
-          </p>
-        </div>
+
       </main>
 
       <Footer />

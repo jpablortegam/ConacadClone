@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label"
 import { IconoGitHub } from "@/components/icons/IconoGitHub"
 import { IconoGoogle } from "@/components/icons/IconoGoogle"
 import Image from "next/image"
-import { signInWithGitHub } from "@/auth"
-import { signInWithGoogle } from "@/auth"
+import { signIn } from "next-auth/react"
+import { signInWithGoogle } from "@/actions/auth"
 
 export function LoginForm({
     className,
@@ -38,10 +38,10 @@ export function LoginForm({
                             </div>
                             <div className="grid gap-3">
                                 <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
+                                    <Label htmlFor="password">Password  </Label>
                                     <a
                                         href="#"
-                                        className="ml-aut text-sm underline-offset-2 hover:underline"
+                                        className="ml-auto text-sm underline-offset-2 hover:underline"
                                     >
                                         Forgot your password?
                                     </a>
@@ -61,7 +61,7 @@ export function LoginForm({
                                     <IconoGoogle className="w-5 h-5" />
                                     <span className="sr-only">Login with Google</span>
                                 </Button>
-                                <Button variant="outline" type="button" className="w-full" onClick={() => signInWithGitHub()}>
+                                <Button variant="outline" type="button" className="w-full" onClick={() => signIn("github", { redirectTo: "/dashboard" })}>
                                     <IconoGitHub className="w-5 h-5" />
                                     <span className="sr-only">Login with GitHub</span>
                                 </Button>
@@ -74,15 +74,19 @@ export function LoginForm({
                             </div>
                         </div>
                     </form>
-                    <div className="bg-muted relative hidden md:block">
-                        <Image
-                            src="/images/login-illustration.svg"
-                            alt="Login Illustration"
-                            width={500}
-                            height={500}
-                            className="absolute inset-0 h-full w-full object-cover"
-                        />
+                    <div className="bg-muted hidden md:flex justify-center items-center w-full h-64 md:h-auto">
+                        <div className="bg-muted flex justify-center items-center w-full h-64 md:h-auto">
+                            <Image
+                                src="/image.png"
+                                alt="Login Illustration"
+                                width={500}
+                                height={500}
+                                priority
 
+                                className="object-contain object-center"
+                            />
+
+                        </div>
                     </div>
                 </CardContent>
             </Card>

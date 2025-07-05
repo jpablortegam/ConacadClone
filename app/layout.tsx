@@ -1,9 +1,15 @@
 import type { Metadata } from "next"
-import { Inter } from 'next/font/google'
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Geist } from "next/font/google"
 
-const inter = Inter({ subsets: ['latin'] })
+import { NextAuthSessionProvider } from "@/app/providers"
+
+const geist = Geist({
+  subsets: ['latin'],
+})
+
+
 
 export const metadata: Metadata = {
   title: {
@@ -79,15 +85,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+      <body className={geist.className}>
+        <NextAuthSessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
+        </NextAuthSessionProvider>
       </body>
     </html>
   )
