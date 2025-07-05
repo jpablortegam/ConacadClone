@@ -121,10 +121,10 @@ export default function NavbarPublic() {
                     {/* Menú escritorio */}
                     <div className="hidden lg:flex items-center gap-3">
                         <ModeToggle />
-                        <Link href="/login">
+                        <Link href="/sign-in">
                             <Button variant="ghost">Iniciar Sesión</Button>
                         </Link>
-                        <Link href="/register">
+                        <Link href="/sign-up">
                             <Button>Registrarse</Button>
                         </Link>
                     </div>
@@ -186,7 +186,7 @@ export default function NavbarPublic() {
                                 {/* Items del menú */}
                                 <motion.div className="flex flex-col gap-3">
                                     <motion.div variants={itemVariants}>
-                                        <Link href="/login" onClick={closeMenu} className="block">
+                                        <Link href="/sign-in" onClick={closeMenu} className="block">
                                             <Button
                                                 variant="ghost"
                                                 className="w-full justify-center h-12 text-left hover:bg-accent/50 transition-colors"
@@ -197,7 +197,7 @@ export default function NavbarPublic() {
                                         </Link>
                                     </motion.div>
                                     <motion.div variants={itemVariants}>
-                                        <Link href="/register" onClick={closeMenu} className="block">
+                                        <Link href="/sign-up" onClick={closeMenu} className="block">
                                             <Button
                                                 className="w-full h-12 bg-primary hover:bg-primary/90 transition-colors"
                                             >

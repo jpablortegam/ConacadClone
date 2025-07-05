@@ -1,4 +1,3 @@
-// app/api/auth/[...nextauth]/route.ts o donde definas el auth
 'use server-only'
 
 import NextAuth from "next-auth"
@@ -12,6 +11,8 @@ const pool = getPool()
 const authOptions = {
   adapter: PostgresAdapter(pool),
   trustHost: true,
+  
+  
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID!,
@@ -22,9 +23,7 @@ const authOptions = {
       clientSecret: process.env.AUTH_GOOGLE_SECRET!,
     }),
   ],
-  pages: {
-    signIn: '/login',
-  },
+  
   secret: process.env.AUTH_SECRET,
 }
 

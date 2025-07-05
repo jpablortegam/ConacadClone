@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 import { Geist } from "next/font/google"
-
-import { NextAuthSessionProvider } from "@/app/providers"
+import { AppProviders } from "./providers"
 
 const geist = Geist({
   subsets: ['latin'],
@@ -86,16 +84,9 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={geist.className}>
-        <NextAuthSessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-          </ThemeProvider>
-        </NextAuthSessionProvider>
+        <AppProviders>
+          {children}
+        </AppProviders>
       </body>
     </html>
   )

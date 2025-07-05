@@ -1,29 +1,60 @@
-"use client" // This tells Next.js to render this component on the client-side
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { signOut } from "@/lib/auth"
+import { Button } from "@/components/ui/button"
 
-import { useSession } from "next-auth/react"
-import { signOut } from "next-auth/react"
+const PageDashboard = async () => {
+    const session = await auth()
 
-import { signIn } from "next-auth/react"
 
-export default function Dashboard() {
-    const { data: session } = useSession()
+    if (!session || !session.user) {
+        redirect("/sign-in")
+    }
+
+    const currentTime = new Date().getTime()
+    if (session.expires && new Date(session.expires).getTime() < currentTime) {
+        redirect("/sign-in")
+    }
 
     return (
-        <nav>
-            {session ? (
-                <p>Welcome, {session.user?.name || "User"}!</p>
-            ) : (
-                <div>
-                    <p>Not logged in.</p>
-                    <button onClick={() => signIn("github", { redirectTo: "/dashboard" })}>
-                        Sign In
-                    </button>
-                </div>
+        <>
+            <h1>Dashboard</h1>
+            {/* ✅ Solo mostrar datos seguros */}
+            <p>Bienvenido, {session.user?.name}</p>
+            <p>Email: {session.user?.email}</p>
 
+            {/* ✅ Mostrar solo información no sensible para debugging */}
+            {process.env.NODE_ENV === 'development' && (
+                <details className="mt-4 p-4 bg--foreground rounded">
+                    <summary >Debug Info (Solo desarrollo)</summary>
+                    <pre className="text-xs">
+                        {JSON.stringify({
+                            name: session.user?.name,
+                            email: session.user?.email,
+                            expires: session.expires
+                        }, null, 2)}
+                    </pre>
+                </details>
             )}
-            <div className="flex flex-col items-center justify-center h-screen">
-                <button onClick={() => signOut()}>Sign Out</button>
-            </div>
-        </nav >
+
+            {/* ✅ Server Action con validación */}
+            <form
+                action={async () => {
+                    "use server"
+
+                    // Validar sesión antes de cerrar
+                    const currentSession = await auth()
+                    if (!currentSession) {
+                        redirect("/sign-in")
+                    }
+
+                    await signOut()
+                }}
+            >
+                <Button type="submit">Sign Out</Button>
+            </form>
+        </>
     )
 }
+
+export default PageDashboard
