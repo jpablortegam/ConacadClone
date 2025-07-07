@@ -31,7 +31,8 @@ const PageDashboard = async () => {
                         {JSON.stringify({
                             name: session.user?.name,
                             email: session.user?.email,
-                            expires: session.expires
+                            expires: session.expires,
+
                         }, null, 2)}
                     </pre>
                 </details>

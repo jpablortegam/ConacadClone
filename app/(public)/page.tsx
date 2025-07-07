@@ -1,4 +1,4 @@
-import NavbarPublic from "@/components/layout/navbar-public";
+import NavbarPublic from "@/components/layout/navbars/navbar-public";
 import { BannerPublic } from "@/components/layout/banner-public";
 import { Footer } from "@/components/layout/footer";
 import { BrouwserStatistics } from "@/components/widgets/browsers";

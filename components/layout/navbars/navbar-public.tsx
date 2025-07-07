@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Menu, X, Code } from 'lucide-react'
-import { ModeToggle } from '../ui/mode-toggle'
-import { Button } from '../ui/button'
+import { ModeToggle } from '@/components/ui/mode-toggle'
+import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence, Variants, cubicBezier } from 'framer-motion'
 
 

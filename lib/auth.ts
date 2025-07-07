@@ -13,12 +13,12 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PostgresAdapter(pool),
   providers: [Google, GitHub],
   trustHost: true,
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-    updateAge: 24 * 60 * 60, 
-  },
+    strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60, 
+    updateAge: 24 * 60 * 60, 
+  },
   cookies: {
   sessionToken: {
     name: "next-auth.session-token",
@@ -29,13 +29,24 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       secure: process.env.NODE_ENV === "production",
     },
   },
-},
+  pkceCodeVerifier: {
+      name: "next-auth.pkce.code_verifier",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 900, // 15 minutos
+      },
+    },
+  },
   callbacks: {
   async jwt({ token, user }) {
     if (user) {
       token.id = user.id;
     }
     return token;
+    
   },
   async session({ session, token }) {
     if (token) {
