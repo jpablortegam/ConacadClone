@@ -4,6 +4,10 @@ let globalPool: Pool | null = null
 
 export default function getPool(): Pool {
   if (!globalPool) {
+    const { DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME } = process.env;
+      if (!DATABASE_HOST || !DATABASE_USER || !DATABASE_PASSWORD || !DATABASE_NAME) {
+      throw new Error("Missing one or more database environment variables (host, user, password, name)");
+    }
     globalPool = new Pool({
       host: process.env.DATABASE_HOST,
       user: process.env.DATABASE_USER,

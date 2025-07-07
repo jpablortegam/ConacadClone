@@ -9,7 +9,7 @@ import { IconoGitHub } from "@/components/icons/IconoGitHub"
 import { IconoGoogle } from "@/components/icons/IconoGoogle"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
-import { signInWithGoogle } from "@/actions/auth"
+
 
 export function LoginForm({
     className,
@@ -57,7 +57,7 @@ export function LoginForm({
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Button variant="outline" type="button" className="w-full" onClick={() => signInWithGoogle()}>
+                                <Button variant="outline" type="button" className="w-full" onClick={() => signIn("google", { redirectTo: "/dashboard" })}>
                                     <IconoGoogle className="w-5 h-5" />
                                     <span className="sr-only">Login with Google</span>
                                 </Button>

@@ -47,6 +47,21 @@ CREATE TABLE users
   PRIMARY KEY (id)
 );
 
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL, -- Ej: 'Admin', 'Editor', 'User'
+    description TEXT
+);
+
+ALTER TABLE users
+ADD COLUMN "roleId" INTEGER; -- Puede ser NULL si un usuario no tiene un rol por defecto o se asigna después.
+                             -- Si quieres que todos los usuarios tengan un rol desde el principio, podrías poner NOT NULL.
+
+ALTER TABLE users
+ADD CONSTRAINT fk_users_role_id
+FOREIGN KEY ("roleId") REFERENCES roles(id) ON DELETE SET NULL; -- Si se elimina un rol, los usuarios con ese rol tendrán roleId NULL.
+                                                              -- Si prefieres que se prohíba la eliminación de roles que están en uso, usa ON DELETE RESTRICT o NO ACTION.
+
 -- Agregar claves foráneas para integridad referencial
 ALTER TABLE accounts 
 ADD CONSTRAINT fk_accounts_user_id 
