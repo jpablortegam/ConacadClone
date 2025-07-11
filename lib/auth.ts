@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
@@ -17,48 +16,34 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
-    Credentials({
-      credentials: {
-        email: {
-          type: "email",
-          label: "Email",
-          placeholder: "johndoe@gmail.com",
-        },
-        password: {
-          type: "password",
-          label: "Password",
-          placeholder: "*****",
-        },
-      },
-      authorize: async (credentials) => {
-        if (credentials.email != "test@test.com"){
-          throw new Error(" Credenciales invalidas");
-        }
-        return{
-          id: "1",
-          name: "test",
-          email: "test@test.com"
-        }
-      },
-    }),
   ],
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "jwt",
+    strategy: "database",
     maxAge: 7 * 24 * 60 * 60, 
     updateAge: 24 * 60 * 60, 
   },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
+      if (user){
         token.id = user.id;
       }
       return token;
     },
     async session({ session, user }) {
-      if (user) {
-        session.user.id = user.id;
+      if (user && user.id) {
+         session.user.id = user.id;
+
+         const userWithRole = await prisma.user.findUnique({
+          where: { 
+            id: Number(user.id) 
+          },
+          include: { role: true }, 
+        });
+          if (userWithRole?.role) {
+          session.user.role = userWithRole.role.name;
+        }
       }
       return session;
     },
