@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 services:
   postgres:
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: nextauth_password
       POSTGRES_DB: nextauth_db
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -23,7 +23,7 @@ services:
     container_name: nextauth_adminer
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '8080:8080'
     networks:
       - nextauth_network
     depends_on:

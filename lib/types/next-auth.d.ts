@@ -1,10 +1,16 @@
 import 'next-auth';
 
+interface Permission {
+  name: string;
+  resource: string;
+  action: string;
+}
+
 declare module 'next-auth' {
   interface User {
-    id: number;
-    roleId?: number | null;
-    role?: string | null; 
+    id: string;
+    roleId?: string | null;
+    role?: string | null;
   }
 
   interface Session {
@@ -12,8 +18,9 @@ declare module 'next-auth' {
       name?: string | null;
       email?: string | null;
       image?: string | null;
-      id: number;
-      role?: string | null; 
-    } & import("next-auth/core/types").Session["user"];
+      id: string;
+      role?: string | null;
+      permissions?: Permission[];
+    } & import('next-auth/core/types').Session['user'];
   }
 }

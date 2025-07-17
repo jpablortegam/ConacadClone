@@ -1,4 +1,3 @@
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -9,7 +8,7 @@ generator client {
 }
 
 model Role {
-  id          Int     @id @default(autoincrement())
+  id          String  @id @default(cuid())
   name        String  @unique
   description String?
 
@@ -19,12 +18,12 @@ model Role {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
+  id            String    @id @default(cuid())
   name          String?
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  roleId        Int?      @map("roleId")
+  roleId        String?   @map("roleId")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt @default(now())
 
@@ -36,18 +35,18 @@ model User {
 }
 
 model Account {
-  id                 Int      @id @default(autoincrement())
-  userId             Int      @map("userId")
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String  @map("userId")
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
@@ -59,9 +58,9 @@ model Account {
 }
 
 model Session {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(cuid())
   sessionToken String   @unique @map("sessionToken")
-  userId       Int      @map("userId")
+  userId       String   @map("userId")
   expires      DateTime
 
   createdAt DateTime @default(now())

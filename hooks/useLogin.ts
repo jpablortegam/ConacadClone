@@ -1,22 +1,22 @@
-"use client"
+'use client';
 
-import { useRouter } from "next/navigation" 
-import { signIn } from "next-auth/react"
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 export function useLogin() {
-  const router = useRouter()
+  const router = useRouter();
 
-  const handleSignIn = async (provider: "google" | "github") => {
+  const handleSignIn = async (provider: 'google' | 'github') => {
     const res = await signIn(provider, {
       redirect: false,
-      callbackUrl: "/dashboard",
-      ...(provider === "google" ? { prompt: "login" } : {}),
-    })
+      callbackUrl: '/dashboard',
+      ...(provider === 'google' ? { prompt: 'login' } : {}),
+    });
 
     if (res?.url) {
-      router.replace(res.url)   
+      router.replace(res.url);
     }
-  }
+  };
 
-  return { handleSignIn }
+  return { handleSignIn };
 }

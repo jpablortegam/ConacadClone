@@ -1,6 +1,6 @@
-import { LoginForm } from "@/components/forms/signin-form"
-import { auth } from "@/lib/auth"
-import { redirect } from "next/navigation"
+import { LoginForm } from '@/components/forms/signin-form';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 
 export default async function LoginPage() {
   const session = await auth();
@@ -15,5 +15,5 @@ export default async function LoginPage() {
         <LoginForm />
       </div>
     </div>
-  )
+  );
 }

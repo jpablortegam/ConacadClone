@@ -1,9 +1,9 @@
-"use server"
+'use server';
 
-import { signIn } from "@/lib/auth"
-import { z } from "zod";
-import { FormState } from "@/lib/definitions"
-import { AuthError } from "next-auth";
+import { signIn } from '@/lib/auth';
+import { z } from 'zod';
+import { FormState } from '@/lib/definitions';
+import { AuthError } from 'next-auth';
 
 // Esquema de validación para login
 const LoginSchema = z.object({
@@ -45,10 +45,7 @@ export async function signInWithGitHub() {
 }
 
 // Acción para login con credenciales
-export async function loginAction(
-  prevState: FormState,
-  formData: FormData
-): Promise<FormState> {
+export async function loginAction(prevState: FormState, formData: FormData): Promise<FormState> {
   // Validar los datos del formulario
   const validatedFields = LoginSchema.safeParse({
     email: formData.get('email'),
@@ -92,23 +89,23 @@ export async function loginActionWithValues(
   try {
     // Validar primero
     const validatedData = LoginSchema.parse(values);
-    
-    const result = await signIn("credentials", {
+
+    const result = await signIn('credentials', {
       email: validatedData.email,
       password: validatedData.password,
-      redirect: false
+      redirect: false,
     });
 
     if (result?.error) {
-      return { error: "Invalid credentials" };
+      return { error: 'Invalid credentials' };
     }
 
     return { success: true };
   } catch (error) {
     console.error('Login error:', error);
     if (error instanceof z.ZodError) {
-      return { error: "Invalid form data" };
+      return { error: 'Invalid form data' };
     }
-    return { error: "Something went wrong" };
+    return { error: 'Something went wrong' };
   }
 }

@@ -6,7 +6,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 First, run the development server:
 
-```bash
+````bash
 npm run dev
 # or
 # Conacad
@@ -25,7 +25,7 @@ yarn dev
 pnpm dev
 # o
 bun dev
-```
+````
 
 Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación en funcionamiento.
 
