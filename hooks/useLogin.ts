@@ -10,9 +10,7 @@ export function useLogin() {
     const res = await signIn(provider, {
       redirect: false,
       callbackUrl: '/dashboard',
-      ...(provider === 'google' ? { prompt: 'login' } : {}),
     });
-
     if (res?.url) {
       router.replace(res.url);
     }

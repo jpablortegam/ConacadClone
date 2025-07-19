@@ -2,7 +2,7 @@
 
 import { signIn } from '@/lib/auth';
 import { z } from 'zod';
-import { FormState } from '@/lib/definitions';
+import { FormState } from '@/lib/zod/definitions';
 import { AuthError } from 'next-auth';
 
 // Esquema de validación para login

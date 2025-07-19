@@ -1,4 +1,7 @@
-export const LOGIN = '/sign-in';
-export const ROOT = '/';
+export const publicRoutes = ['/'];
 
-export const PUBLIC_ROUTES = ['/sign-in', '/sign-up'];
+export const authRoutes = ['/sign-in', '/sign-up']; // Sin /auth/
+
+export const apiAuthPrefix = '/api/auth';
+
+export const defaultRedirect = '/dashboard';
