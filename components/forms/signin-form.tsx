@@ -73,14 +73,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
           </form>
           <div className="bg-muted hidden h-64 w-full items-center justify-center md:flex md:h-auto">
             <div className="bg-muted flex h-64 w-full items-center justify-center md:h-auto">
-              <Image
-                src="/test-image.png"
-                alt="Login Illustration"
-                width={500}
-                height={500}
-                priority
-                className="object-contain object-center"
-              />
+              <Image src="/profile.png" width={500} height={500} alt="Picture of the author" />
             </div>
           </div>
         </CardContent>
