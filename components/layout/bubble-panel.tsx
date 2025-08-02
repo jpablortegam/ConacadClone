@@ -2,19 +2,24 @@
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 
-// Definición de tipos para las propiedades de color (RGB)
-interface RGBColor {
-  r: number;
-  g: number;
-  b: number;
-}
+// Paleta Neutral de Tailwind en hex
+const TAILWIND_NEUTRAL = [
+  "#1A1A1A", // neutral-900
+  "#333333", // neutral-700
+  "#4D4D4D", // neutral-600
+  "#CCCCCC", // neutral-300
+  "#F5F5F5", // neutral-100
+];
 
-// Clase para representar una burbuja (sin imágenes por ahora)
+// Tipo de color ahora string (hex)
+type ColorHex = string;
+
+// Clase para representar una burbuja
 class Bubble {
   x: number;
   y: number;
   radius: number;
-  color: RGBColor;
+  color: ColorHex;
   isParticle: boolean;
   velocity: { x: number; y: number };
   opacity: number;
@@ -24,7 +29,7 @@ class Bubble {
     x: number,
     y: number,
     radius: number,
-    color: RGBColor,
+    color: ColorHex,
     isParticle = false
   ) {
     this.x = x;
@@ -42,9 +47,10 @@ class Bubble {
 
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
+    ctx.globalAlpha = this.opacity;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.opacity})`;
+    ctx.fillStyle = this.color;
     ctx.fill();
     ctx.lineWidth = 3;
     ctx.strokeStyle = `rgba(100,100,100,${this.opacity})`;
@@ -53,26 +59,28 @@ class Bubble {
   }
 
   update(canvas: HTMLCanvasElement) {
-    // Movimiento básico y rebote
+    // Movimiento
     this.x += this.velocity.x;
     this.y += this.velocity.y;
-    const bounceDamping = 0.5;
+
+    // Rebote en paredes
+    const damping = 0.5;
     if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
-      this.velocity.x *= -bounceDamping;
+      this.velocity.x *= -damping;
       this.x = Math.min(
         Math.max(this.x, this.radius),
         canvas.width - this.radius
       );
     }
     if (this.y - this.radius < 0 || this.y + this.radius > canvas.height) {
-      this.velocity.y *= -bounceDamping;
+      this.velocity.y *= -damping;
       this.y = Math.min(
         Math.max(this.y, this.radius),
         canvas.height - this.radius
       );
     }
 
-    // Para partículas, desvanecer
+    // Partículas se desvanecen
     if (this.isParticle) {
       this.opacity -= 0.02;
       this.radius -= 0.1;
@@ -83,43 +91,37 @@ class Bubble {
   }
 
   pop(): Bubble[] {
-    // Cuando revienta, devuelve un array de partículas de explosión
     this.markForRemoval = true;
-    const particles: Bubble[] = [];
+    const fragments: Bubble[] = [];
     for (let i = 0; i < 5; i++) {
-      const p = new Bubble(this.x, this.y, Math.random() * 3 + 1, this.color, true);
-      particles.push(p);
+      fragments.push(
+        new Bubble(this.x, this.y, Math.random() * 3 + 1, this.color, true)
+      );
     }
-    return particles;
+    return fragments;
   }
 }
 
-// Genera un color neutro aleatorio
-const getRandomNeutralColor = (): RGBColor => {
-  const palette = [
-    { r: 26, g: 26, b: 26 },
-    { r: 51, g: 51, b: 51 },
-    { r: 77, g: 77, b: 77 },
-    { r: 204, g: 204, b: 204 },
-    { r: 245, g: 245, b: 245 },
+// Selecciona un color al azar de la paleta
+const getRandomNeutralColor = (): ColorHex =>
+  TAILWIND_NEUTRAL[
+    Math.floor(Math.random() * TAILWIND_NEUTRAL.length)
   ];
-  return palette[Math.floor(Math.random() * palette.length)];
-};
 
 const CommunitySection: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
-  const [_, setTick] = useState(0);
+  const isResizingRef = useRef(false);
+  const resizeTimeoutRef = useRef<number | null>(null);
+  const [, setTick] = useState(0);
 
-  // Inicializa las burbujas
+  // Inicializa burbujas
   const initBubbles = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const count = 15;
-    const w = canvas.width;
-    const h = canvas.height;
+    const { width: w, height: h } = canvas;
     const arr: Bubble[] = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < 15; i++) {
       const r = Math.random() * 25 + 25;
       const x = Math.random() * (w - 2 * r) + r;
       const y = Math.random() * (h - 2 * r) + r;
@@ -129,56 +131,101 @@ const CommunitySection: React.FC = () => {
     setTick((t) => t + 1);
   }, []);
 
-  // Ajusta el tamaño del canvas al contenedor
+  // Ajusta canvas al contenedor, con debounce para evitar repaints durante resize
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const parent = canvas.parentElement;
-    if (parent) {
-      canvas.width = parent.clientWidth;
-      canvas.height = parent.clientHeight;
-      initBubbles();
+    if (!parent) return;
+
+    // Indicamos que está en resizing
+    isResizingRef.current = true;
+    // Actualizamos tamaño inmediatamente
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+
+    // Debounce: solo tras 300ms sin más resize, inicializamos y reanudamos
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
     }
+    resizeTimeoutRef.current = window.setTimeout(() => {
+      initBubbles();
+      isResizingRef.current = false;
+    }, 300);
   }, [initBubbles]);
 
   useEffect(() => {
-    // Inicial y listener resize
+    // Inicial y listener
     requestAnimationFrame(handleResize);
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
     };
   }, [handleResize]);
 
-  // Bucle de animación
+  // Animación con detección de colisiones
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    let id: number;
+    let frameId: number;
 
-    const loop = () => {
-      if (!canvas || !ctx) {
-        id = requestAnimationFrame(loop);
+    const animate = () => {
+      // Mientras esté en resize, no pintamos nada
+      if (isResizingRef.current || !canvas || !ctx) {
+        frameId = requestAnimationFrame(animate);
         return;
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const list = bubblesRef.current;
 
-      // Actualiza y filtra partículas muertas
-      list.forEach((b) => b.update(canvas));
-      bubblesRef.current = list.filter((b) => !b.markForRemoval);
+      // Actualiza posición y filtra partículas muertas
+      bubblesRef.current.forEach((b) => b.update(canvas));
+      const list = bubblesRef.current.filter((b) => !b.markForRemoval);
+
+      // Colisiones entre burbujas no-partícula
+      for (let i = 0; i < list.length; i++) {
+        const b1 = list[i];
+        if (b1.isParticle) continue;
+        for (let j = i + 1; j < list.length; j++) {
+          const b2 = list[j];
+          if (b2.isParticle) continue;
+          const dx = b2.x - b1.x;
+          const dy = b2.y - b1.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = b1.radius + b2.radius;
+          if (dist < minDist) {
+            // Separación y rebote
+            const angle = Math.atan2(dy, dx);
+            const overlap = (minDist - dist) / 2;
+            const shiftX = Math.cos(angle) * overlap;
+            const shiftY = Math.sin(angle) * overlap;
+            b1.x -= shiftX;
+            b1.y -= shiftY;
+            b2.x += shiftX;
+            b2.y += shiftY;
+            const v1x = b1.velocity.x;
+            const v1y = b1.velocity.y;
+            b1.velocity.x = b2.velocity.x * 0.8;
+            b1.velocity.y = b2.velocity.y * 0.8;
+            b2.velocity.x = v1x * 0.8;
+            b2.velocity.y = v1y * 0.8;
+          }
+        }
+      }
 
       // Dibuja
-      bubblesRef.current.forEach((b) => b.draw(ctx));
+      list.forEach((b) => b.draw(ctx));
+      bubblesRef.current = list;
 
-      id = requestAnimationFrame(loop);
+      frameId = requestAnimationFrame(animate);
     };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
+
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
-  // Al clic, revienta la primera burbuja que toque
+  // Al hacer clic, revienta la primera burbuja tocada
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -190,15 +237,11 @@ const CommunitySection: React.FC = () => {
       const list = [...bubblesRef.current];
       for (let i = list.length - 1; i >= 0; i--) {
         const b = list[i];
-        if (!b.isParticle) {
-          const dx = x - b.x;
-          const dy = y - b.y;
-          if (Math.hypot(dx, dy) < b.radius) {
-            // revienta y añade partículas
-            const parts = b.pop();
-            list.splice(i, 1, ...parts);
-            break;
-          }
+        if (b.isParticle) continue;
+        if (Math.hypot(x - b.x, y - b.y) < b.radius) {
+          const parts = b.pop();
+          list.splice(i, 1, ...parts);
+          break;
         }
       }
       bubblesRef.current = list;
@@ -208,16 +251,27 @@ const CommunitySection: React.FC = () => {
   );
 
   return (
-    <section id="comunidad" className="bg-white bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center">
-      <h2 className="text-4xl font-extrabold mb-6 text-gray-900">Nuestra Vibrante Comunidad</h2>
-      <p className="text-xl text-gray-600 leading-relaxed mb-8">
-        ¡Conoce a los rostros detrás de nuestra plataforma! Haz clic en las burbujas para interactuar con ellas.
+    <section
+      id="comunidad"
+      className="bg-background bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center"
+    >
+      <h2 className="text-4xl font-extrabold mb-6 text-primary">
+        Nuestra Vibrante Comunidad
+      </h2>
+      <p className="text-xl text-primary leading-relaxed mb-8">
+        ¡Conoce a los rostros detrás de nuestra plataforma! Haz clic en las
+        burbujas para interactuar con ellas.
       </p>
-      <div className="relative w-full h-96 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-lg overflow-hidden border-2 border-gray-200">
-        <canvas ref={canvasRef} onClick={handleClick} className="w-full h-full cursor-pointer block" />
+      <div className="relative w-full h-96 bg-200 rounded-lg overflow-hidden border-2 border-gray-200">
+        <canvas
+          ref={canvasRef}
+          onClick={handleClick}
+          className="w-full h-full cursor-pointer block"
+        />
       </div>
       <div className="mt-6 text-sm text-gray-500">
-        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Reaparecerán en una nueva ubicación!
+        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Reaparecerán en
+        una nueva ubicación!
       </div>
     </section>
   );
