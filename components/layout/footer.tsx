@@ -2,8 +2,8 @@ import { IconoGitHub } from '@/components/icons/IconoGitHub';
 
 export const Footer = () => {
   return (
-    <footer className="bg-gray-900 py-6 text-white">
-      <div className="container mx-auto flex flex-col items-center justify-between px-4 md:flex-row md:items-start">
+    <footer className="bg-gray-900 py-2 text-white">
+      <div className="container mx-auto flex flex-col items-center justify-between px-2 md:flex-row md:items-start">
         {/* Logo + texto */}
         <div className="space-y-1 text-center md:text-left">
           <h1 className="text-2xl font-bold">Conacad</h1>
