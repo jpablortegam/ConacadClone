@@ -11,7 +11,6 @@ const TAILWIND_NEUTRAL = [
   "#F5F5F5", // neutral-100
 ];
 
-// Tipo de color ahora string (hex)
 type ColorHex = string;
 
 // Clase para representar una burbuja
@@ -59,11 +58,9 @@ class Bubble {
   }
 
   update(canvas: HTMLCanvasElement) {
-    // Movimiento
     this.x += this.velocity.x;
     this.y += this.velocity.y;
 
-    // Rebote en paredes
     const damping = 0.5;
     if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
       this.velocity.x *= -damping;
@@ -80,7 +77,6 @@ class Bubble {
       );
     }
 
-    // Partículas se desvanecen
     if (this.isParticle) {
       this.opacity -= 0.02;
       this.radius -= 0.1;
@@ -102,7 +98,6 @@ class Bubble {
   }
 }
 
-// Selecciona un color al azar de la paleta
 const getRandomNeutralColor = (): ColorHex =>
   TAILWIND_NEUTRAL[
     Math.floor(Math.random() * TAILWIND_NEUTRAL.length)
@@ -111,18 +106,28 @@ const getRandomNeutralColor = (): ColorHex =>
 const CommunitySection: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
+  const respawnQueueRef = useRef<number[]>([]);
   const isResizingRef = useRef(false);
   const resizeTimeoutRef = useRef<number | null>(null);
   const [, setTick] = useState(0);
 
-  // Inicializa burbujas
+  const respawnDelay = 5000;
+  const rateLimitInterval = 1000;
+  const autoPopInterval = 10000;
+  const mobileBreakpoint = 640;
+
+  // Inicializa burbujas según tamaño (móvil vs desktop)
   const initBubbles = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const { width: w, height: h } = canvas;
+    const count = w < mobileBreakpoint ? 8 : 15;
+    const minR = w < mobileBreakpoint ? 10 : 25;
+    const maxR = w < mobileBreakpoint ? 20 : 50;
+
     const arr: Bubble[] = [];
-    for (let i = 0; i < 15; i++) {
-      const r = Math.random() * 25 + 25;
+    for (let i = 0; i < count; i++) {
+      const r = Math.random() * (maxR - minR) + minR;
       const x = Math.random() * (w - 2 * r) + r;
       const y = Math.random() * (h - 2 * r) + r;
       arr.push(new Bubble(x, y, r, getRandomNeutralColor()));
@@ -131,20 +136,17 @@ const CommunitySection: React.FC = () => {
     setTick((t) => t + 1);
   }, []);
 
-  // Ajusta canvas al contenedor, con debounce para evitar repaints durante resize
+  // Ajusta canvas al contenedor con debounce para esperar al tamaño final
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const parent = canvas.parentElement;
     if (!parent) return;
 
-    // Indicamos que está en resizing
     isResizingRef.current = true;
-    // Actualizamos tamaño inmediatamente
     canvas.width = parent.clientWidth;
     canvas.height = parent.clientHeight;
 
-    // Debounce: solo tras 300ms sin más resize, inicializamos y reanudamos
     if (resizeTimeoutRef.current) {
       clearTimeout(resizeTimeoutRef.current);
     }
@@ -155,7 +157,6 @@ const CommunitySection: React.FC = () => {
   }, [initBubbles]);
 
   useEffect(() => {
-    // Inicial y listener
     requestAnimationFrame(handleResize);
     window.addEventListener("resize", handleResize);
     return () => {
@@ -164,14 +165,13 @@ const CommunitySection: React.FC = () => {
     };
   }, [handleResize]);
 
-  // Animación con detección de colisiones
+  // Animación y colisiones
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext("2d")!;
     let frameId: number;
 
     const animate = () => {
-      // Mientras esté en resize, no pintamos nada
       if (isResizingRef.current || !canvas || !ctx) {
         frameId = requestAnimationFrame(animate);
         return;
@@ -179,11 +179,10 @@ const CommunitySection: React.FC = () => {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Actualiza posición y filtra partículas muertas
       bubblesRef.current.forEach((b) => b.update(canvas));
       const list = bubblesRef.current.filter((b) => !b.markForRemoval);
 
-      // Colisiones entre burbujas no-partícula
+      // Colisiones
       for (let i = 0; i < list.length; i++) {
         const b1 = list[i];
         if (b1.isParticle) continue;
@@ -195,7 +194,6 @@ const CommunitySection: React.FC = () => {
           const dist = Math.hypot(dx, dy);
           const minDist = b1.radius + b2.radius;
           if (dist < minDist) {
-            // Separación y rebote
             const angle = Math.atan2(dy, dx);
             const overlap = (minDist - dist) / 2;
             const shiftX = Math.cos(angle) * overlap;
@@ -204,17 +202,16 @@ const CommunitySection: React.FC = () => {
             b1.y -= shiftY;
             b2.x += shiftX;
             b2.y += shiftY;
-            const v1x = b1.velocity.x;
-            const v1y = b1.velocity.y;
+            const vx1 = b1.velocity.x;
+            const vy1 = b1.velocity.y;
             b1.velocity.x = b2.velocity.x * 0.8;
             b1.velocity.y = b2.velocity.y * 0.8;
-            b2.velocity.x = v1x * 0.8;
-            b2.velocity.y = v1y * 0.8;
+            b2.velocity.x = vx1 * 0.8;
+            b2.velocity.y = vy1 * 0.8;
           }
         }
       }
 
-      // Dibuja
       list.forEach((b) => b.draw(ctx));
       bubblesRef.current = list;
 
@@ -225,11 +222,47 @@ const CommunitySection: React.FC = () => {
     return () => cancelAnimationFrame(frameId);
   }, []);
 
-  // Al hacer clic, revienta la primera burbuja tocada
+  // Procesa la cola de respawn a rateLimitInterval
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      const queue = respawnQueueRef.current;
+      if (queue.length && queue[0] <= now) {
+        queue.shift(); // tomar un respawn pendiente
+        const canvas = canvasRef.current!;
+        const w = canvas.width;
+        const h = canvas.height;
+        const r = Math.random() * 25 + 25;
+        const x = Math.random() * (w - 2 * r) + r;
+        const y = Math.random() * (h - 2 * r) + r;
+        bubblesRef.current.push(new Bubble(x, y, r, getRandomNeutralColor()));
+        setTick((t) => t + 1);
+      }
+    }, rateLimitInterval);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-pop: cada autoPopInterval explota una burbuja al azar
+  useEffect(() => {
+    const autoPop = window.setInterval(() => {
+      const list = bubblesRef.current.filter((b) => !b.isParticle);
+      if (list.length === 0) return;
+      const target = list[Math.floor(Math.random() * list.length)];
+      const particles = target.pop();
+      bubblesRef.current = bubblesRef.current
+        .filter((b) => b !== target)
+        .concat(particles);
+      // encolar respawn
+      respawnQueueRef.current.push(Date.now() + respawnDelay);
+      setTick((t) => t + 1);
+    }, autoPopInterval);
+    return () => clearInterval(autoPop);
+  }, []);
+
+  // Clic: pop + encolar respawn
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+      const canvas = canvasRef.current!;
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -241,6 +274,7 @@ const CommunitySection: React.FC = () => {
         if (Math.hypot(x - b.x, y - b.y) < b.radius) {
           const parts = b.pop();
           list.splice(i, 1, ...parts);
+          respawnQueueRef.current.push(Date.now() + respawnDelay);
           break;
         }
       }
@@ -270,8 +304,8 @@ const CommunitySection: React.FC = () => {
         />
       </div>
       <div className="mt-6 text-sm text-gray-500">
-        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Reaparecerán en
-        una nueva ubicación!
+        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Muchas se
+        autodescubrirán y reaparecerán también!
       </div>
     </section>
   );
