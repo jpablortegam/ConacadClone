@@ -4,16 +4,35 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 
 // Paleta Neutral de Tailwind en hex
 const TAILWIND_NEUTRAL = [
-  "#1A1A1A", // neutral-900
-  "#333333", // neutral-700
-  "#4D4D4D", // neutral-600
-  "#CCCCCC", // neutral-300
-  "#F5F5F5", // neutral-100
+  "#1A1A1A",
+  "#333333",
+  "#4D4D4D",
+  "#CCCCCC",
+  "#F5F5F5",
 ];
 
 type ColorHex = string;
 
-// Clase para representar una burbuja
+const BUBBLE_CONFIG = {
+  respawnDelay: 5000,
+  rateLimitInterval: 1000,
+  autoPopInterval: 10000,
+  mobileBreakpoint: 640,
+  desktopBubbleCount: 15,
+  mobileBubbleCount: 8,
+  desktopMinRadius: 25,
+  desktopMaxRadius: 50,
+  mobileMinRadius: 10,
+  mobileMaxRadius: 20,
+  popScaleEffect: 1.2,
+  popAnimationDuration: 10,
+  particleCount: 5,
+  particleMinRadius: 1,
+  particleMaxRadius: 4,
+  bounceDamping: 0.5,
+  friction: 0.99,
+};
+
 class Bubble {
   x: number;
   y: number;
@@ -21,8 +40,9 @@ class Bubble {
   color: ColorHex;
   isParticle: boolean;
   velocity: { x: number; y: number };
-  opacity: number;
-  markForRemoval: boolean;
+  opacity = 1;
+  markForRemoval = false;
+  popAnimationProgress = 0;
 
   constructor(
     x: number,
@@ -33,22 +53,30 @@ class Bubble {
   ) {
     this.x = x;
     this.y = y;
-    this.radius = radius;
+    this.radius = Math.max(radius, 1);
     this.color = color;
     this.isParticle = isParticle;
     this.velocity = {
       x: (Math.random() - 0.5) * 2,
       y: (Math.random() - 0.5) * 2,
     };
-    this.opacity = 1;
-    this.markForRemoval = false;
   }
 
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.globalAlpha = this.opacity;
+
+    let r = this.radius;
+    if (this.popAnimationProgress > 0 && this.popAnimationProgress < 1) {
+      r =
+        this.radius *
+        (1 +
+          (BUBBLE_CONFIG.popScaleEffect - 1) *
+            Math.sin(this.popAnimationProgress * Math.PI));
+    }
+
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
     ctx.fillStyle = this.color;
     ctx.fill();
     ctx.lineWidth = 3;
@@ -58,19 +86,21 @@ class Bubble {
   }
 
   update(canvas: HTMLCanvasElement) {
+    this.velocity.x *= BUBBLE_CONFIG.friction;
+    this.velocity.y *= BUBBLE_CONFIG.friction;
     this.x += this.velocity.x;
     this.y += this.velocity.y;
 
-    const damping = 0.5;
+    const d = BUBBLE_CONFIG.bounceDamping;
     if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
-      this.velocity.x *= -damping;
+      this.velocity.x *= -d;
       this.x = Math.min(
         Math.max(this.x, this.radius),
         canvas.width - this.radius
       );
     }
     if (this.y - this.radius < 0 || this.y + this.radius > canvas.height) {
-      this.velocity.y *= -damping;
+      this.velocity.y *= -d;
       this.y = Math.min(
         Math.max(this.y, this.radius),
         canvas.height - this.radius
@@ -83,16 +113,26 @@ class Bubble {
       if (this.opacity <= 0 || this.radius <= 0) {
         this.markForRemoval = true;
       }
+    } else if (this.popAnimationProgress > 0) {
+      this.popAnimationProgress += 1 / BUBBLE_CONFIG.popAnimationDuration;
+      if (this.popAnimationProgress >= 1) {
+        this.markForRemoval = true;
+      }
     }
   }
 
   pop(): Bubble[] {
-    this.markForRemoval = true;
+    if (!this.isParticle) {
+      this.popAnimationProgress = 0.01;
+    }
     const fragments: Bubble[] = [];
-    for (let i = 0; i < 5; i++) {
-      fragments.push(
-        new Bubble(this.x, this.y, Math.random() * 3 + 1, this.color, true)
-      );
+    for (let i = 0; i < BUBBLE_CONFIG.particleCount; i++) {
+      const r =
+        Math.random() *
+          (BUBBLE_CONFIG.particleMaxRadius -
+            BUBBLE_CONFIG.particleMinRadius) +
+        BUBBLE_CONFIG.particleMinRadius;
+      fragments.push(new Bubble(this.x, this.y, r, this.color, true));
     }
     return fragments;
   }
@@ -107,82 +147,82 @@ const CommunitySection: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
   const respawnQueueRef = useRef<number[]>([]);
-  const isResizingRef = useRef(false);
   const resizeTimeoutRef = useRef<number | null>(null);
-  const [, setTick] = useState(0);
 
-  const respawnDelay = 5000;
-  const rateLimitInterval = 1000;
-  const autoPopInterval = 10000;
-  const mobileBreakpoint = 640;
+  // Initialize or reflow bubbles based on canvas size
+  const initBubbles = useCallback((w: number, h: number) => {
+    const isMobile = w < BUBBLE_CONFIG.mobileBreakpoint;
+    const count = isMobile
+      ? BUBBLE_CONFIG.mobileBubbleCount
+      : BUBBLE_CONFIG.desktopBubbleCount;
+    const minR = isMobile
+      ? BUBBLE_CONFIG.mobileMinRadius
+      : BUBBLE_CONFIG.desktopMinRadius;
+    const maxR = isMobile
+      ? BUBBLE_CONFIG.mobileMaxRadius
+      : BUBBLE_CONFIG.desktopMaxRadius;
 
-  // Inicializa burbujas según tamaño (móvil vs desktop)
-  const initBubbles = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { width: w, height: h } = canvas;
-    const count = w < mobileBreakpoint ? 8 : 15;
-    const minR = w < mobileBreakpoint ? 10 : 25;
-    const maxR = w < mobileBreakpoint ? 20 : 50;
-
-    const arr: Bubble[] = [];
+    const newB: Bubble[] = [];
     for (let i = 0; i < count; i++) {
       const r = Math.random() * (maxR - minR) + minR;
       const x = Math.random() * (w - 2 * r) + r;
       const y = Math.random() * (h - 2 * r) + r;
-      arr.push(new Bubble(x, y, r, getRandomNeutralColor()));
+      newB.push(new Bubble(x, y, r, getRandomNeutralColor()));
     }
-    bubblesRef.current = arr;
-    setTick((t) => t + 1);
+    bubblesRef.current = newB;
   }, []);
 
-  // Ajusta canvas al contenedor con debounce para esperar al tamaño final
+  // Handle resize: update buffer size, debounce initBubbles
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const parent = canvas.parentElement;
     if (!parent) return;
 
-    isResizingRef.current = true;
-    canvas.width = parent.clientWidth;
-    canvas.height = parent.clientHeight;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
 
     if (resizeTimeoutRef.current) {
       clearTimeout(resizeTimeoutRef.current);
     }
     resizeTimeoutRef.current = window.setTimeout(() => {
-      initBubbles();
-      isResizingRef.current = false;
-    }, 300);
+      initBubbles(w, h);
+    }, 200);
   }, [initBubbles]);
 
+  // Set up resize listener and initial sizing
   useEffect(() => {
-    requestAnimationFrame(handleResize);
     window.addEventListener("resize", handleResize);
+    handleResize();
     return () => {
       window.removeEventListener("resize", handleResize);
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
     };
   }, [handleResize]);
 
-  // Animación y colisiones
+  // Animation loop with collisions
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d")!;
-    let frameId: number;
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    let rafId: number;
 
     const animate = () => {
-      if (isResizingRef.current || !canvas || !ctx) {
-        frameId = requestAnimationFrame(animate);
-        return;
-      }
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       bubblesRef.current.forEach((b) => b.update(canvas));
-      const list = bubblesRef.current.filter((b) => !b.markForRemoval);
+      const list = bubblesRef.current.filter(
+        (b) =>
+          !b.markForRemoval ||
+          (b.popAnimationProgress > 0 && b.popAnimationProgress < 1)
+      );
 
-      // Colisiones
+      // collisions
       for (let i = 0; i < list.length; i++) {
         const b1 = list[i];
         if (b1.isParticle) continue;
@@ -192,16 +232,16 @@ const CommunitySection: React.FC = () => {
           const dx = b2.x - b1.x;
           const dy = b2.y - b1.y;
           const dist = Math.hypot(dx, dy);
-          const minDist = b1.radius + b2.radius;
-          if (dist < minDist) {
+          const minD = b1.radius + b2.radius;
+          if (dist < minD) {
             const angle = Math.atan2(dy, dx);
-            const overlap = (minDist - dist) / 2;
-            const shiftX = Math.cos(angle) * overlap;
-            const shiftY = Math.sin(angle) * overlap;
-            b1.x -= shiftX;
-            b1.y -= shiftY;
-            b2.x += shiftX;
-            b2.y += shiftY;
+            const overlap = (minD - dist) / 2;
+            const sx = Math.cos(angle) * overlap;
+            const sy = Math.sin(angle) * overlap;
+            b1.x -= sx;
+            b1.y -= sy;
+            b2.x += sx;
+            b2.y += sy;
             const vx1 = b1.velocity.x;
             const vy1 = b1.velocity.y;
             b1.velocity.x = b2.velocity.x * 0.8;
@@ -215,74 +255,81 @@ const CommunitySection: React.FC = () => {
       list.forEach((b) => b.draw(ctx));
       bubblesRef.current = list;
 
-      frameId = requestAnimationFrame(animate);
+      rafId = requestAnimationFrame(animate);
     };
 
-    frameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frameId);
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [handleResize, initBubbles]);
+
+  // Auto-pop interval
+  useEffect(() => {
+    const id = setInterval(() => {
+      const list = bubblesRef.current.filter(
+        (b) => !b.isParticle && b.popAnimationProgress === 0
+      );
+      if (!list.length) return;
+      const b = list[Math.floor(Math.random() * list.length)];
+      const parts = b.pop();
+      bubblesRef.current = bubblesRef.current
+        .filter((x) => x !== b)
+        .concat(b, ...parts);
+      respawnQueueRef.current.push(
+        Date.now() + BUBBLE_CONFIG.respawnDelay
+      );
+    }, BUBBLE_CONFIG.autoPopInterval);
+    return () => clearInterval(id);
   }, []);
 
-  // Procesa la cola de respawn a rateLimitInterval
+  // Respawn interval
   useEffect(() => {
-    const interval = window.setInterval(() => {
+    const id = setInterval(() => {
       const now = Date.now();
       const queue = respawnQueueRef.current;
-      if (queue.length && queue[0] <= now) {
-        queue.shift(); // tomar un respawn pendiente
+      while (queue.length && queue[0] <= now) {
+        queue.shift();
         const canvas = canvasRef.current!;
-        const w = canvas.width;
-        const h = canvas.height;
-        const r = Math.random() * 25 + 25;
+        const w = canvas.width,
+          h = canvas.height;
+        const r =
+          Math.random() *
+            (BUBBLE_CONFIG.desktopMaxRadius -
+              BUBBLE_CONFIG.desktopMinRadius) +
+          BUBBLE_CONFIG.desktopMinRadius;
         const x = Math.random() * (w - 2 * r) + r;
         const y = Math.random() * (h - 2 * r) + r;
-        bubblesRef.current.push(new Bubble(x, y, r, getRandomNeutralColor()));
-        setTick((t) => t + 1);
+        bubblesRef.current.push(
+          new Bubble(x, y, r, getRandomNeutralColor())
+        );
       }
-    }, rateLimitInterval);
-    return () => clearInterval(interval);
+    }, BUBBLE_CONFIG.rateLimitInterval);
+    return () => clearInterval(id);
   }, []);
 
-  // Auto-pop: cada autoPopInterval explota una burbuja al azar
-  useEffect(() => {
-    const autoPop = window.setInterval(() => {
-      const list = bubblesRef.current.filter((b) => !b.isParticle);
-      if (list.length === 0) return;
-      const target = list[Math.floor(Math.random() * list.length)];
-      const particles = target.pop();
-      bubblesRef.current = bubblesRef.current
-        .filter((b) => b !== target)
-        .concat(particles);
-      // encolar respawn
-      respawnQueueRef.current.push(Date.now() + respawnDelay);
-      setTick((t) => t + 1);
-    }, autoPopInterval);
-    return () => clearInterval(autoPop);
-  }, []);
+  // Click handler with proper scaling
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
-  // Clic: pop + encolar respawn
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current!;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      const list = [...bubblesRef.current];
-      for (let i = list.length - 1; i >= 0; i--) {
-        const b = list[i];
-        if (b.isParticle) continue;
-        if (Math.hypot(x - b.x, y - b.y) < b.radius) {
-          const parts = b.pop();
-          list.splice(i, 1, ...parts);
-          respawnQueueRef.current.push(Date.now() + respawnDelay);
-          break;
-        }
+    for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
+      const b = bubblesRef.current[i];
+      if (b.isParticle || b.popAnimationProgress > 0) continue;
+      if (Math.hypot(x - b.x, y - b.y) < b.radius) {
+        const parts = b.pop();
+        bubblesRef.current = bubblesRef.current
+          .filter((x) => x !== b)
+          .concat(b, ...parts);
+        respawnQueueRef.current.push(
+          Date.now() + BUBBLE_CONFIG.respawnDelay
+        );
+        break;
       }
-      bubblesRef.current = list;
-      setTick((t) => t + 1);
-    },
-    []
-  );
+    }
+  }, []);
 
   return (
     <section
@@ -300,12 +347,13 @@ const CommunitySection: React.FC = () => {
         <canvas
           ref={canvasRef}
           onClick={handleClick}
-          className="w-full h-full cursor-pointer block"
+          style={{ display: "block" }}
+          aria-label="Animación interactiva de burbujas"
         />
       </div>
       <div className="mt-6 text-sm text-gray-500">
-        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Muchas se
-        autodescubrirán y reaparecerán también!
+        💡 Tip: Haz clic en las burbujas para hacerlas explotar. ¡Algunas
+        explotarán solas y reaparecerán!
       </div>
     </section>
   );
