@@ -2,6 +2,7 @@ import NavbarPublic from '@/components/layout/navbars/navbar-public';
 import { BannerPublic } from '@/components/layout/banner-public';
 import { Footer } from '@/components/layout/footer';
 import { BrouwserStatistics } from '@/components/widgets/browsers';
+import CommunitySection from '@/components/layout/bubble-panel';
 
 export default function Home() {
   return (
@@ -21,6 +22,7 @@ export default function Home() {
             Aquí puedes ihoihoihcoihoihsoihoi más contenido o componentes según sea necesario.
           </p>
         </div>
+        <CommunitySection />
       </main>
 
       <Footer />
