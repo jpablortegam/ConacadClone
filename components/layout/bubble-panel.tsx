@@ -385,7 +385,7 @@ const CommunitySection: React.FC = () => {
       id="comunidad"
       className="bg-background bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center"
     >
-      <h2 className="text-4xl font-extrabold mb-6 text-primary">
+      <h2 className="text-2xl font-extrabold mb-6 text-primary">
          Nuestra Comunidad
       </h2>
       <div className="relative w-full h-96 bg-200 rounded-lg overflow-hidden border-2 border-gray-200">
