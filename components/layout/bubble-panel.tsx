@@ -31,6 +31,9 @@ const BUBBLE_CONFIG = {
   particleMaxRadius: 4,
   bounceDamping: 0.5,
   friction: 0.99,
+  // Configuración para manejar cambios de viewport en móviles
+  mobileResizeThreshold: 100, // Umbral mínimo de cambio para considerar un resize real
+  resizeDebounceTime: 300,
 };
 
 class Bubble {
@@ -143,11 +146,27 @@ const getRandomNeutralColor = (): ColorHex =>
     Math.floor(Math.random() * TAILWIND_NEUTRAL.length)
   ];
 
+// Función para detectar si es un dispositivo móvil
+const isMobileDevice = (): boolean => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+};
+
 const CommunitySection: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
   const respawnQueueRef = useRef<number[]>([]);
   const resizeTimeoutRef = useRef<number | null>(null);
+  
+  // Referencias para tracking de dimensiones previas
+  const lastDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+  const isMobileRef = useRef<boolean>(false);
+
+  // Detectar si es móvil al montar
+  useEffect(() => {
+    isMobileRef.current = isMobileDevice();
+  }, []);
 
   // Initialize or reflow bubbles based on canvas size
   const initBubbles = useCallback((w: number, h: number) => {
@@ -172,6 +191,25 @@ const CommunitySection: React.FC = () => {
     bubblesRef.current = newB;
   }, []);
 
+  // Función para determinar si un cambio de tamaño es significativo
+  const isSignificantResize = useCallback((newW: number, newH: number): boolean => {
+    if (!lastDimensionsRef.current) return true;
+    
+    const { width: oldW, height: oldH } = lastDimensionsRef.current;
+    const widthChange = Math.abs(newW - oldW);
+    const heightChange = Math.abs(newH - oldH);
+    
+    // En móviles, solo consideramos cambios significativos si superan el umbral
+    // Esto evita redibujados por cambios menores del viewport al hacer scroll
+    if (isMobileRef.current) {
+      return widthChange > BUBBLE_CONFIG.mobileResizeThreshold || 
+             heightChange > BUBBLE_CONFIG.mobileResizeThreshold;
+    }
+    
+    // En desktop, cualquier cambio es significativo
+    return widthChange > 10 || heightChange > 10;
+  }, []);
+
   // Handle resize: update buffer size, debounce initBubbles
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -181,18 +219,26 @@ const CommunitySection: React.FC = () => {
 
     const w = parent.clientWidth;
     const h = parent.clientHeight;
+    
+    // Siempre actualizar el tamaño del canvas
     canvas.width = w;
     canvas.height = h;
     canvas.style.width = "100%";
     canvas.style.height = "100%";
 
-    if (resizeTimeoutRef.current) {
-      clearTimeout(resizeTimeoutRef.current);
+    // Solo reinicializar burbujas si el cambio es significativo
+    if (isSignificantResize(w, h)) {
+      lastDimensionsRef.current = { width: w, height: h };
+      
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      
+      resizeTimeoutRef.current = window.setTimeout(() => {
+        initBubbles(w, h);
+      }, BUBBLE_CONFIG.resizeDebounceTime);
     }
-    resizeTimeoutRef.current = window.setTimeout(() => {
-      initBubbles(w, h);
-    }, 200);
-  }, [initBubbles]);
+  }, [initBubbles, isSignificantResize]);
 
   // Set up resize listener and initial sizing
   useEffect(() => {
@@ -291,11 +337,14 @@ const CommunitySection: React.FC = () => {
         const canvas = canvasRef.current!;
         const w = canvas.width,
           h = canvas.height;
-        const r =
-          Math.random() *
-            (BUBBLE_CONFIG.desktopMaxRadius -
-              BUBBLE_CONFIG.desktopMinRadius) +
-          BUBBLE_CONFIG.desktopMinRadius;
+        const isMobile = w < BUBBLE_CONFIG.mobileBreakpoint;
+        const minR = isMobile
+          ? BUBBLE_CONFIG.mobileMinRadius
+          : BUBBLE_CONFIG.desktopMinRadius;
+        const maxR = isMobile
+          ? BUBBLE_CONFIG.mobileMaxRadius
+          : BUBBLE_CONFIG.desktopMaxRadius;
+        const r = Math.random() * (maxR - minR) + minR;
         const x = Math.random() * (w - 2 * r) + r;
         const y = Math.random() * (h - 2 * r) + r;
         bubblesRef.current.push(
@@ -337,12 +386,8 @@ const CommunitySection: React.FC = () => {
       className="bg-background bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center"
     >
       <h2 className="text-4xl font-extrabold mb-6 text-primary">
-        Nuestra Vibrante Comunidad
+         Nuestra Comunidad
       </h2>
-      <p className="text-xl text-primary leading-relaxed mb-8">
-        ¡Conoce a los rostros detrás de nuestra plataforma! Haz clic en las
-        burbujas para interactuar con ellas.
-      </p>
       <div className="relative w-full h-96 bg-200 rounded-lg overflow-hidden border-2 border-gray-200">
         <canvas
           ref={canvasRef}
