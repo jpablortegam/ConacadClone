@@ -26,7 +26,20 @@ export default function NavbarPublic() {
     return () => window.removeEventListener('resize', onResize);
   }, [isMobileMenuOpen]);
 
-  // Variantes mejoradas para el backdrop
+  // Prevenir scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
+  // Variantes para el backdrop
   const backdropVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -45,13 +58,13 @@ export default function NavbarPublic() {
     },
   };
 
-  // Variantes para el modal que sale desde la esquina superior derecha
+  // Variantes para el modal que sale desde el menú hamburguesa
   const modalVariants: Variants = {
     hidden: {
       opacity: 0,
-      scale: 0.4,
-      x: 100,
-      y: -80,
+      scale: 0.6,
+      x: 80,
+      y: -100,
       transformOrigin: 'top right',
     },
     visible: {
@@ -66,14 +79,14 @@ export default function NavbarPublic() {
         stiffness: 300,
         mass: 0.8,
         when: 'beforeChildren',
-        staggerChildren: 0.08,
+        staggerChildren: 0.1,
       },
     },
     exit: {
       opacity: 0,
-      scale: 0.4,
-      x: 100,
-      y: -80,
+      scale: 0.6,
+      x: 80,
+      y: -100,
       transformOrigin: 'top right',
       transition: {
         duration: 0.2,
@@ -82,17 +95,17 @@ export default function NavbarPublic() {
     },
   };
 
-  // Variantes mejoradas para los items del menú
+  // Variantes para los items del menú
   const itemVariants: Variants = {
     hidden: {
       opacity: 0,
-      x: 30,
-      rotateY: -15,
+      y: 20,
+      scale: 0.95,
     },
     visible: {
       opacity: 1,
-      x: 0,
-      rotateY: 0,
+      y: 0,
+      scale: 1,
       transition: {
         type: 'spring',
         damping: 20,
@@ -150,7 +163,7 @@ export default function NavbarPublic() {
         </div>
       </header>
 
-      {/* Modal móvil mejorado */}
+      {/* Modal móvil mejorado y centrado */}
       <AnimatePresence mode="wait">
         {isMobileMenuOpen && (
           <motion.div
@@ -159,21 +172,21 @@ export default function NavbarPublic() {
             animate="visible"
             exit="exit"
             variants={backdropVariants}
-            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
             onClick={closeMenu}
           >
-            {/* Contenedor posicionado en la esquina superior derecha */}
-            <div className="absolute top-6 right-6">
+            {/* Modal posicionado cerca del menú hamburguesa pero un poco más arriba */}
+            <div className="absolute top-16 right-4">
               <motion.div
                 variants={modalVariants}
-                className="bg-primary-foreground/95 border-border/50 w-90 rounded-2xl border p-16 shadow-2xl backdrop-blur-md"
+                className="bg-primary-foreground/95 border-border/50 w-80 rounded-2xl border p-6 shadow-2xl backdrop-blur-md"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   boxShadow:
                     '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)',
                 }}
               >
-                {/* Header del modal */}
+                {/* Header del modal con botón de cerrar */}
                 <motion.div
                   variants={itemVariants}
                   className="mb-6 flex items-center justify-between"
@@ -182,6 +195,15 @@ export default function NavbarPublic() {
                     <Code size={20} />
                     <span className="text-sm font-semibold">Menú</span>
                   </div>
+                  <motion.button
+                    onClick={closeMenu}
+                    className="hover:bg-accent rounded-full p-1.5 transition-colors"
+                    aria-label="Cerrar menú"
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <X size={18} />
+                  </motion.button>
                 </motion.div>
 
                 {/* Items del menú */}
@@ -190,7 +212,7 @@ export default function NavbarPublic() {
                     <Link href="/sign-in" onClick={closeMenu} className="block">
                       <Button
                         variant="ghost"
-                        className="hover:bg-accent/50 h-12 w-full justify-center text-left transition-colors"
+                        className="hover:bg-accent/50 h-12 w-full justify-center text-base font-medium transition-colors"
                       >
                         Iniciar Sesión
                       </Button>
@@ -198,11 +220,21 @@ export default function NavbarPublic() {
                   </motion.div>
                   <motion.div variants={itemVariants}>
                     <Link href="/sign-up" onClick={closeMenu} className="block">
-                      <Button className="bg-primary hover:bg-primary/90 h-12 w-full transition-colors">
+                      <Button className="bg-primary hover:bg-primary/90 h-12 w-full text-base font-medium transition-colors">
                         Registrarse
                       </Button>
                     </Link>
                   </motion.div>
+                </motion.div>
+
+                {/* Separador visual opcional */}
+                <motion.div
+                  variants={itemVariants}
+                  className="border-border/30 mt-6 border-t pt-4"
+                >
+                  <p className="text-muted-foreground text-center text-xs">
+                    ¿Necesitas ayuda? Contáctanos
+                  </p>
                 </motion.div>
               </motion.div>
             </div>

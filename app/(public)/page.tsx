@@ -2,11 +2,7 @@ import NavbarPublic from '@/components/layout/navbars/navbar-public';
 import { BannerPublic } from '@/components/layout/banner-public';
 import { Footer } from '@/components/layout/footer';
 import CommunitySection from '@/components/layout/bubble-panel';
-const studentImageUrls = [
-  "https://miapi.com/estudiante/1.png",
-  "https://miapi.com/estudiante/2.png",
-  /* … */
-];
+
 
 export default function Home() {
   return (

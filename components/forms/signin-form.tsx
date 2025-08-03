@@ -8,11 +8,10 @@ import { Label } from '@/components/ui/label';
 import { IconoGitHub } from '@/components/icons/IconoGitHub';
 import { IconoGoogle } from '@/components/icons/IconoGoogle';
 import Image from 'next/image';
-import { useLogin } from '@/hooks/useLogin';
 import Logo  from '@/assets/images/login.png'
+import { signIn } from 'next-auth/react';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
-  const { handleSignIn } = useLogin();
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card className="overflow-hidden p-0">
@@ -49,7 +48,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                   variant="outline"
                   type="button"
                   className="w-full"
-                  onClick={() => handleSignIn('google')}
+                  onClick={() => signIn('google')}
                 >
                   <IconoGoogle className="h-5 w-5" />
                   <span className="sr-only">Login with Google</span>
@@ -58,7 +57,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                   variant="outline"
                   type="button"
                   className="w-full"
-                  onClick={() => handleSignIn('github')}
+                  onClick={() => signIn('github')}
                 >
                   <IconoGitHub className="h-5 w-5" />
                   <span className="sr-only">Login with GitHub</span>
