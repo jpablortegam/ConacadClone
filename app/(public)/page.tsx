@@ -9,11 +9,10 @@ export default function Home() {
     <div className="flex min-h-screen min-w-[320px] flex-col">
       {/* Opción 1: Min-width en el contenedor principal */}
       <NavbarPublic />
-
       <BannerPublic />
 
       {/* Main con ancho mínimo también */}
-      <main className="container mx-auto min-w-0 flex-grow px-4 py-16">
+      <main>
          <CommunitySection />
       </main>
 
