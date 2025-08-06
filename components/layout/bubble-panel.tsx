@@ -23,11 +23,11 @@ const BUBBLE_CONFIG = {
   autoPopInterval: 8000,
   mobileBreakpoint: 640,
   desktopBubbleCount: 20,
-  mobileBubbleCount: 12,
+  mobileBubbleCount: 15, // Aumentado de 12 a 15
   desktopMinRadius: 25,
   desktopMaxRadius: 50,
-  mobileMinRadius: 10,
-  mobileMaxRadius: 20,
+  mobileMinRadius: 20, // Aumentado de 10 a 20
+  mobileMaxRadius: 35, // Aumentado de 20 a 35
   popScaleEffect: 1.2,
   popAnimationDuration: 15,
   particleCount: 4,
@@ -40,13 +40,13 @@ const BUBBLE_CONFIG = {
   spawnAnimationDuration: 30,
   maxParticles: 50,
   cullDistance: 100,
-  mouseRepelRadius: 0,
-  mouseRepelForce: 0,
-  maxRepelDistance: 0,
+  mouseRepelRadius: 0, // Mantenido en 0 como en el original
+  mouseRepelForce: 0,  // Mantenido en 0 como en el original
+  maxRepelDistance: 0, // Mantenido en 0 como en el original
   // Configuraciones para avatares
-  avatarPadding: 1, // Padding interno para las imágenes
-  avatarBorderWidth: 3, // Grosor del borde
-  profileBubbleRatio: 0.7, // Porcentaje de burbujas que serán perfiles
+  avatarPadding: 1,
+  avatarBorderWidth: 3,
+  profileBubbleRatio: 0.7,
 } as const;
 
 class Bubble {
@@ -80,7 +80,7 @@ class Bubble {
     this.x = x;
     this.y = y;
     this.radius = isParticle ? radius : 0;
-    this.targetRadius = Math.max(radius, 1);
+    this.targetRadius = Math.max(radius, 1); // ✅ FIX: Asegurar que nunca sea negativo
     this.color = color;
     this.isParticle = isParticle;
     this.userProfile = userProfile || null;
@@ -140,6 +140,9 @@ class Bubble {
       r = this.radius * (1 + (BUBBLE_CONFIG.popScaleEffect - 1) *
         Math.sin(this.popAnimationProgress * Math.PI));
     }
+
+    // ✅ FIX: Asegurar que el radio nunca sea negativo antes de dibujar
+    r = Math.max(r, 0.1);
 
     // Dibujar la burbuja
     ctx.beginPath();
@@ -211,6 +214,7 @@ class Bubble {
       this.opacity += (this.targetOpacity - this.opacity) * 0.05;
     }
 
+    // ✅ Mantener el efecto de repulsión original (desactivado con valores en 0)
     if (mousePos && !this.isParticle && this.popAnimationProgress === 0) {
       const dx = this.x - mousePos.x;
       const dy = this.y - mousePos.y;
@@ -252,7 +256,8 @@ class Bubble {
     if (this.isParticle) {
       this.opacity -= 0.02;
       this.radius -= 0.1;
-      if (this.opacity <= 0 || this.radius <= 0) {
+      // ✅ FIX: Verificar que radius no sea negativo
+      if (this.opacity <= 0 || this.radius <= 0.1) {
         this.markForRemoval = true;
       }
     } else if (this.popAnimationProgress > 0) {
@@ -274,8 +279,9 @@ class Bubble {
         (BUBBLE_CONFIG.particleMaxRadius -
           BUBBLE_CONFIG.particleMinRadius) +
         BUBBLE_CONFIG.particleMinRadius;
-      // Las partículas usan el color de la burbuja original
-      fragments.push(new Bubble(this.x, this.y, r, this.color, true));
+      // ✅ FIX: Asegurar que las partículas tengan radio válido
+      const validRadius = Math.max(r, 0.5);
+      fragments.push(new Bubble(this.x, this.y, validRadius, this.color, true));
     }
     return fragments;
   }
@@ -290,19 +296,19 @@ const getRandomNeutralColor = (): ColorHex => {
   return color;
 };
 
+// ✅ Mejorar la detección móvil
 const isMobileDevice = (): boolean => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
-  );
+  ) || window.innerWidth <= BUBBLE_CONFIG.mobileBreakpoint;
 };
 
-// ✅ INTERFAZ CORREGIDA - Recibe los datos, no la función
 interface CommunitySeccionProps {
-  profilePictures?: UserProfile[]; // Array de perfiles, no función
+  profilePictures?: UserProfile[];
 }
 
 const CommunitySection: React.FC<CommunitySeccionProps> = ({
-  profilePictures = [] // Default a array vacío
+  profilePictures = []
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
@@ -311,7 +317,6 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
   const animationIdRef = useRef<number | null>(null);
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
 
-  // ✅ Estado simplificado - usar directamente los props
   const [userProfiles] = useState<UserProfile[]>(profilePictures);
   const usedProfilesRef = useRef<Set<number>>(new Set());
 
@@ -323,25 +328,20 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     isMobileRef.current = isMobileDevice();
   }, []);
 
-  // ✅ Actualizar perfiles cuando cambian los props
   useEffect(() => {
     if (profilePictures && profilePictures.length > 0) {
-      // Si hay nuevos perfiles, reiniciar el conjunto de perfiles usados
       usedProfilesRef.current.clear();
       console.log(`✅ Cargados ${profilePictures.length} perfiles para burbujas`);
     }
   }, [profilePictures]);
 
-  // Función para obtener un perfil aleatorio no usado
   const getRandomProfile = useCallback((): UserProfile | null => {
     if (userProfiles.length === 0) return null;
 
-    // Si ya usamos todos los perfiles, reiniciar
     if (usedProfilesRef.current.size >= userProfiles.length) {
       usedProfilesRef.current.clear();
     }
 
-    // Filtrar perfiles no usados
     const availableProfiles = userProfiles.filter((_, index) =>
       !usedProfilesRef.current.has(index)
     );
@@ -360,7 +360,8 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     const minR = isMobile ? BUBBLE_CONFIG.mobileMinRadius : BUBBLE_CONFIG.desktopMinRadius;
     const maxR = isMobile ? BUBBLE_CONFIG.mobileMaxRadius : BUBBLE_CONFIG.desktopMaxRadius;
 
-    const r = Math.random() * (maxR - minR) + minR;
+    // ✅ FIX: Asegurar valores válidos siempre
+    const r = Math.max(Math.random() * (maxR - minR) + minR, 1);
     const x = Math.random() * (w - 2 * maxR) + maxR;
     const y = Math.random() * (h - 2 * maxR) + maxR;
 
@@ -376,6 +377,8 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     const isMobile = w < BUBBLE_CONFIG.mobileBreakpoint;
     const count = isMobile ? BUBBLE_CONFIG.mobileBubbleCount : BUBBLE_CONFIG.desktopBubbleCount;
 
+    console.log(`🔄 Inicializando ${count} burbujas para ${isMobile ? 'móvil' : 'desktop'}`);
+
     bubblesRef.current = [];
     spawnCounterRef.current = 0;
     usedProfilesRef.current.clear();
@@ -386,6 +389,7 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
         spawnCounterRef.current++;
       } else {
         clearInterval(spawnInterval);
+        console.log(`✅ ${count} burbujas creadas exitosamente`);
       }
     }, 150);
 
@@ -415,10 +419,20 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     const w = parent.clientWidth;
     const h = parent.clientHeight;
 
-    canvas.width = w;
-    canvas.height = h;
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
+    // ✅ Optimización: Configurar canvas para alta resolución en móvil
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+
+    const ctx = canvas.getContext("2d");
+    if (ctx && dpr !== 1) {
+      ctx.scale(dpr, dpr);
+    }
+
+    // Actualizar detección móvil
+    isMobileRef.current = isMobileDevice();
 
     if (isSignificantResize(w, h)) {
       lastDimensionsRef.current = { width: w, height: h };
@@ -448,14 +462,29 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ✅ Optimización: Control de frame rate para móviles
+    let lastTime = 0;
+    const targetFPS = isMobileRef.current ? 45 : 60; // Menos FPS en móvil
+    const frameInterval = 1000 / targetFPS;
+
+    const animate = (currentTime: number) => {
+      if (currentTime - lastTime < frameInterval) {
+        animationIdRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastTime = currentTime;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+
+      ctx.clearRect(0, 0, w, h);
 
       const activeBubbles: Bubble[] = [];
       let particleCount = 0;
 
       for (const bubble of bubblesRef.current) {
-        bubble.update(canvas, mousePositionRef.current || undefined);
+        bubble.update({ width: w, height: h } as HTMLCanvasElement, mousePositionRef.current || undefined);
 
         if (bubble.markForRemoval) {
           continue;
@@ -473,38 +502,96 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
 
       bubblesRef.current = activeBubbles;
 
+      // ✅ Sistema de colisiones optimizado con spatial partitioning
       const normalBubbles = activeBubbles.filter(b => !b.isParticle);
-      for (let i = 0; i < normalBubbles.length; i++) {
-        const b1 = normalBubbles[i];
-        for (let j = i + 1; j < normalBubbles.length; j++) {
-          const b2 = normalBubbles[j];
-          const dx = b2.x - b1.x;
-          const dy = b2.y - b1.y;
-          const dist = Math.hypot(dx, dy);
-          const minD = b1.radius + b2.radius;
 
-          if (dist < minD && dist > 0) {
-            const angle = Math.atan2(dy, dx);
-            const overlap = (minD - dist) / 2;
-            const sx = Math.cos(angle) * overlap;
-            const sy = Math.sin(angle) * overlap;
+      if (normalBubbles.length > 0) {
+        // Crear una cuadrícula espacial para optimizar detección de colisiones
+        const gridSize = isMobileRef.current ? 80 : 100;
+        const cols = Math.ceil(w / gridSize);
+        const rows = Math.ceil(h / gridSize);
+        const grid: Bubble[][] = Array(cols * rows).fill(null).map(() => []);
 
-            b1.x -= sx;
-            b1.y -= sy;
-            b2.x += sx;
-            b2.y += sy;
+        // Asignar burbujas a celdas de la cuadrícula
+        for (const bubble of normalBubbles) {
+          const col = Math.floor(bubble.x / gridSize);
+          const row = Math.floor(bubble.y / gridSize);
+          if (col >= 0 && col < cols && row >= 0 && row < rows) {
+            grid[row * cols + col].push(bubble);
+          }
+        }
 
-            const vx1 = b1.velocity.x;
-            const vy1 = b1.velocity.y;
-            b1.velocity.x = b2.velocity.x * 0.9;
-            b1.velocity.y = b2.velocity.y * 0.9;
-            b2.velocity.x = vx1 * 0.9;
-            b2.velocity.y = vy1 * 0.9;
+        // Verificar colisiones solo entre burbujas en celdas adyacentes
+        const checkedPairs = new Set<string>();
+
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const cellIndex = row * cols + col;
+            const cellBubbles = grid[cellIndex];
+
+            // Revisar todas las celdas adyacentes (incluyendo la actual)
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const newRow = row + dr;
+                const newCol = col + dc;
+
+                if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols) {
+                  const adjacentIndex = newRow * cols + newCol;
+                  const adjacentBubbles = grid[adjacentIndex];
+
+                  // Revisar colisiones entre burbujas de las dos celdas
+                  for (const b1 of cellBubbles) {
+                    for (const b2 of adjacentBubbles) {
+                      if (b1 === b2) continue;
+
+                      // Evitar revisar el mismo par dos veces
+                      const pairKey = b1.x < b2.x ? `${b1.x},${b1.y}-${b2.x},${b2.y}` : `${b2.x},${b2.y}-${b1.x},${b1.y}`;
+                      if (checkedPairs.has(pairKey)) continue;
+                      checkedPairs.add(pairKey);
+
+                      const dx = b2.x - b1.x;
+                      const dy = b2.y - b1.y;
+                      const dist = Math.hypot(dx, dy);
+                      const minD = b1.radius + b2.radius;
+
+                      if (dist < minD && dist > 0.1) { // Evitar división por cero
+                        const angle = Math.atan2(dy, dx);
+                        const overlap = (minD - dist) / 2;
+                        const sx = Math.cos(angle) * overlap;
+                        const sy = Math.sin(angle) * overlap;
+
+                        // Separar las burbujas
+                        b1.x -= sx;
+                        b1.y -= sy;
+                        b2.x += sx;
+                        b2.y += sy;
+
+                        // Intercambio de velocidades con amortiguación
+                        const damping = isMobileRef.current ? 0.85 : 0.9; // Menos rebote en móvil
+                        const vx1 = b1.velocity.x;
+                        const vy1 = b1.velocity.y;
+
+                        b1.velocity.x = b2.velocity.x * damping;
+                        b1.velocity.y = b2.velocity.y * damping;
+                        b2.velocity.x = vx1 * damping;
+                        b2.velocity.y = vy1 * damping;
+
+                        // Añadir pequeña variación aleatoria para evitar bucles
+                        b1.velocity.x += (Math.random() - 0.5) * 0.5;
+                        b1.velocity.y += (Math.random() - 0.5) * 0.5;
+                        b2.velocity.x += (Math.random() - 0.5) * 0.5;
+                        b2.velocity.y += (Math.random() - 0.5) * 0.5;
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
 
-      activeBubbles.forEach(bubble => bubble.draw(ctx, canvas));
+      activeBubbles.forEach(bubble => bubble.draw(ctx, { width: w, height: h } as HTMLCanvasElement));
 
       animationIdRef.current = requestAnimationFrame(animate);
     };
@@ -547,7 +634,8 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       while (queue.length && queue[0] <= now) {
         queue.shift();
         const canvas = canvasRef.current!;
-        createBubbleProgressively(canvas.width, canvas.height);
+        const dpr = window.devicePixelRatio || 1;
+        createBubbleProgressively(canvas.width / dpr, canvas.height / dpr);
       }
     }, BUBBLE_CONFIG.rateLimitInterval);
 
@@ -557,12 +645,10 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
 
     mousePositionRef.current = {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left),
+      y: (e.clientY - rect.top),
     };
   }, []);
 
@@ -573,10 +659,8 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const x = (e.clientX - rect.left);
+    const y = (e.clientY - rect.top);
 
     let closestBubble: Bubble | null = null;
     let closestDistance = Infinity;
