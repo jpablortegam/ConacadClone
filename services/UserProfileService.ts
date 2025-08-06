@@ -28,7 +28,7 @@ class RealtimeUserProfileService {
   private prisma: PrismaClient;
   private cache: Map<string, UserProfile> = new Map();
   private lastCacheUpdate: Date = new Date(0);
-  private cacheExpiry: number = 1 * 60 * 1000; // 1 minutos
+  private cacheExpiry: number = 30 * 1000; // 30 segundos
   private subscribers: Set<(event: ProfileUpdateEvent) => void> = new Set();
 
   // Pool de perfiles para rotación automática
