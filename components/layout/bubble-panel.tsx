@@ -721,28 +721,43 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       respawnQueueRef.current.push(Date.now() + BUBBLE_CONFIG.respawnDelay);
     }
   }, []);
-
   return (
     <section
       id="comunidad"
-      className="bg-background bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center"
+      className="
+        container mx-auto px-4                   /* coincide con el ancho de tu navbar */
+        bg-card/90 backdrop-blur-sm
+        border border-border/20 rounded-lg
+        shadow-lg dark:shadow-2xl dark:shadow-black/25
+        p-8 mb-10 text-center
+        transition-all duration-300
+      "
     >
       <h2 className="text-4xl font-extrabold mb-6 text-primary">
         Nuestra Comunidad
       </h2>
-      <p className="text-sm text-gray-600 mb-4">
+
+      <p className="text-sm text-muted-foreground mb-4">
         {userProfiles.length > 0
           ? `${userProfiles.length} miembros activos • Haz clic en las burbujas para interactuar • Auto-refresh cada 5min`
-          : "Cargando comunidad..."
-        }
+          : 'Cargando comunidad...'}
       </p>
-      <div className="relative w-full h-96 bg-200 rounded-lg overflow-hidden border-2 border-gray-200">
+
+      <div
+        className="
+          relative w-full h-96
+          bg-muted/30 dark:bg-muted/10
+          rounded-lg overflow-hidden
+          border-2 border-border/50 dark:border-border/30
+          transition-colors duration-300
+        "
+      >
         <canvas
           ref={canvasRef}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          style={{ display: "block" }}
+          style={{ display: 'block' }}
           aria-label="Animación interactiva de burbujas con avatares de usuarios - Las burbujas se alejan del cursor y puedes hacer clic para explotarlas"
         />
       </div>
