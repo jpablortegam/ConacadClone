@@ -1,4 +1,4 @@
-// src/services/UserProfileService.ts
+// src/services/RealtimeUserProfileService.ts
 
 import { PrismaClient } from '@prisma/client';
 
@@ -6,221 +6,356 @@ import { PrismaClient } from '@prisma/client';
  * Tipo para el perfil de usuario que será usado en las burbujas
  */
 export interface UserProfile {
+  id: string; // Añadido para tracking
   name: string;
   image: string;
+  lastSeen?: Date; // Para mostrar actividad reciente
 }
 
 /**
- * Servicio para manejar la lógica relacionada con los perfiles de usuario.
+ * Tipo para eventos de actualización en tiempo real
  */
-class UserProfileService {
-  private prisma: PrismaClient;
+export type ProfileUpdateEvent = {
+  type: 'PROFILE_ADDED' | 'PROFILE_UPDATED' | 'PROFILE_REMOVED' | 'USER_ONLINE' | 'USER_OFFLINE';
+  profile: UserProfile;
+  timestamp: Date;
+};
 
-  /**
-   * Inicializa el servicio con una instancia de PrismaClient.
-   * @param prisma - La instancia de PrismaClient.
-   */
+/**
+ * Servicio optimizado para manejar perfiles de usuario en tiempo real
+ */
+class RealtimeUserProfileService {
+  private prisma: PrismaClient;
+  private cache: Map<string, UserProfile> = new Map();
+  private lastCacheUpdate: Date = new Date(0);
+  private cacheExpiry: number = 1 * 60 * 1000; // 1 minutos
+  private subscribers: Set<(event: ProfileUpdateEvent) => void> = new Set();
+
+  // Pool de perfiles para rotación automática
+  private profilePool: UserProfile[] = [];
+  private currentPoolIndex: number = 0;
+
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
+    this.initializeCache();
   }
 
   /**
-   * Obtiene una lista de todos los avatares de usuario.
-   * Devuelve un array de objetos con el nombre del usuario y la URL de la imagen.
-   * @returns Una promesa que se resuelve con un array de objetos de perfil.
+   * Inicializa el cache con datos frescos
    */
-  public async getProfilePictures(): Promise<UserProfile[]> {
+  private async initializeCache(): Promise<void> {
     try {
-      const users = await this.prisma.user.findMany({
-        // Selecciona solo los campos 'name' e 'image' para optimizar la consulta
-        select: {
-          name: true,
-          image: true,
+      const profiles = await this.fetchProfilesFromDB();
+      this.updateCache(profiles);
+      console.log(`🚀 Cache inicializado con ${profiles.length} perfiles`);
+    } catch (error) {
+      console.error('❌ Error inicializando cache:', error);
+    }
+  }
+
+  /**
+   * Actualiza el cache con nuevos perfiles
+   */
+  private updateCache(profiles: UserProfile[]): void {
+    this.cache.clear();
+    this.profilePool = profiles;
+
+    profiles.forEach((profile) => {
+      this.cache.set(profile.id, profile);
+    });
+
+    this.lastCacheUpdate = new Date();
+  }
+
+  /**
+   * Verifica si el cache está expirado
+   */
+  private isCacheExpired(): boolean {
+    return Date.now() - this.lastCacheUpdate.getTime() > this.cacheExpiry;
+  }
+
+  /**
+   * Obtiene perfiles desde la base de datos con optimizaciones
+   */
+  private async fetchProfilesFromDB(): Promise<UserProfile[]> {
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        updatedAt: true,
+        // Si tienes un campo de última conexión:
+        // lastSeen: true,
+      },
+      where: {
+        image: { not: null },
+        name: { not: null },
+        // Opcional: solo usuarios activos en los últimos 30 días
+        updatedAt: {
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         },
-        // Opcional: limitar la cantidad para mejor rendimiento
-        take: 50, // Máximo 50 perfiles para las burbujas
-        // Opcional: ordenar por usuarios más activos o recientes
-        orderBy: [
-          { updatedAt: 'desc' }, // Más recientes primero
-          // { name: 'asc' }, // O alfabéticamente
-        ],
-        // Opcional: filtrar usuarios activos
-        where: {
-          // Solo usuarios con imagen
-          image: {
-            not: null,
-          },
-          // Opcional: solo usuarios activos o verificados
-          // emailVerified: { not: null },
-          // status: 'ACTIVE', // Si tienes un campo de status
-        },
+      },
+      orderBy: [
+        { updatedAt: 'desc' },
+        { id: 'asc' }, // Para orden consistente
+      ],
+      take: 100, // Aumentado para mejor rotación
+    });
+
+    return users
+      .filter((user): user is { id: string; name: string; image: string; updatedAt: Date } => {
+        return user.image !== null && user.name !== null;
+      })
+      .map((user) => ({
+        id: user.id,
+        name: user.name,
+        image: user.image,
+        lastSeen: user.updatedAt,
+      }));
+  }
+
+  /**
+   * 🚀 MÉTODO PRINCIPAL: Obtiene perfiles con cache inteligente
+   */
+  public async getProfilePictures(forceRefresh: boolean = false): Promise<UserProfile[]> {
+    // Si el cache es válido y no se fuerza refresh, usar cache
+    if (!forceRefresh && !this.isCacheExpired() && this.profilePool.length > 0) {
+      console.log(`⚡ Usando cache (${this.profilePool.length} perfiles)`);
+      return [...this.profilePool]; // Retorna copia para evitar mutaciones
+    }
+
+    try {
+      console.log('🔄 Actualizando perfiles desde DB...');
+      const profiles = await this.fetchProfilesFromDB();
+      this.updateCache(profiles);
+
+      // Notificar a suscriptores sobre la actualización masiva
+      profiles.forEach((profile) => {
+        this.notifySubscribers({
+          type: 'PROFILE_ADDED',
+          profile,
+          timestamp: new Date(),
+        });
       });
 
-      // Filtra y mapea los usuarios que tienen imagen válida
-      const profiles = users
-        .filter((user): user is { name: string; image: string } => {
-          return user.image !== null && user.image !== '' && user.name !== null && user.name !== '';
-        })
-        .map((user) => ({
-          name: user.name,
-          image: user.image,
-        }));
-
-      console.log(`✅ Cargados ${profiles.length} perfiles de usuario para burbujas`);
+      console.log(`✅ Cache actualizado con ${profiles.length} perfiles`);
       return profiles;
     } catch (error) {
-      console.error('❌ Error al obtener las fotos de perfil:', error);
-
-      // En lugar de throw, podemos retornar array vacío para que las burbujas funcionen
-      // throw new Error('No se pudieron obtener las fotos de perfil.');
-
-      // Retornar array vacío para que el componente funcione con burbujas normales
-      return [];
+      console.error('❌ Error obteniendo perfiles:', error);
+      // Retornar cache anterior si hay error
+      return [...this.profilePool];
     }
   }
 
   /**
-   * Obtiene perfiles de usuario con paginación (útil para cargas dinámicas)
-   * @param page - Número de página (empezando en 1)
-   * @param limit - Cantidad de perfiles por página
-   * @returns Promesa con array de perfiles y metadatos de paginación
+   * 🎯 Obtiene un batch rotativo de perfiles (ideal para burbujas)
    */
-  public async getProfilePicturesPaginated(
-    page: number = 1,
-    limit: number = 20
-  ): Promise<{
-    profiles: UserProfile[];
-    totalCount: number;
-    hasMore: boolean;
-    currentPage: number;
-  }> {
+  public getRotatingBatch(count: number = 20): UserProfile[] {
+    if (this.profilePool.length === 0) return [];
+
+    const batch: UserProfile[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const profile = this.profilePool[this.currentPoolIndex % this.profilePool.length];
+      batch.push(profile);
+      this.currentPoolIndex++;
+    }
+
+    console.log(`🔄 Batch rotativo: ${batch.length} perfiles (índice: ${this.currentPoolIndex})`);
+    return batch;
+  }
+
+  /**
+   * 📡 Suscribirse a actualizaciones en tiempo real
+   */
+  public subscribe(callback: (event: ProfileUpdateEvent) => void): () => void {
+    this.subscribers.add(callback);
+    console.log(`📡 Nuevo suscriptor. Total: ${this.subscribers.size}`);
+
+    // Retorna función de cleanup
+    return () => {
+      this.subscribers.delete(callback);
+      console.log(`📡 Suscriptor removido. Total: ${this.subscribers.size}`);
+    };
+  }
+
+  /**
+   * 📢 Notifica a todos los suscriptores
+   */
+  private notifySubscribers(event: ProfileUpdateEvent): void {
+    this.subscribers.forEach((callback) => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('❌ Error notificando suscriptor:', error);
+      }
+    });
+  }
+
+  /**
+   * 🔥 Actualización incremental (solo perfiles modificados)
+   */
+  public async getIncrementalUpdates(): Promise<UserProfile[]> {
     try {
-      const skip = (page - 1) * limit;
-
-      // Obtener el total de usuarios con imagen
-      const totalCount = await this.prisma.user.count({
-        where: {
-          image: { not: null },
-        },
-      });
-
-      // Obtener usuarios paginados
-      const users = await this.prisma.user.findMany({
+      const updatedProfiles = await this.prisma.user.findMany({
         select: {
+          id: true,
           name: true,
           image: true,
+          updatedAt: true,
         },
         where: {
           image: { not: null },
+          updatedAt: { gte: this.lastCacheUpdate },
         },
         orderBy: { updatedAt: 'desc' },
-        skip,
-        take: limit,
       });
 
-      const profiles = users
-        .filter((user): user is { name: string; image: string } => {
+      const newProfiles = updatedProfiles
+        .filter((user): user is { id: string; name: string; image: string; updatedAt: Date } => {
           return user.image !== null && user.name !== null;
         })
         .map((user) => ({
+          id: user.id,
           name: user.name,
           image: user.image,
+          lastSeen: user.updatedAt,
         }));
 
-      return {
-        profiles,
-        totalCount,
-        hasMore: skip + profiles.length < totalCount,
-        currentPage: page,
-      };
-    } catch (error) {
-      console.error('❌ Error al obtener perfiles paginados:', error);
-      return {
-        profiles: [],
-        totalCount: 0,
-        hasMore: false,
-        currentPage: page,
-      };
-    }
-  }
+      // Actualizar cache incrementalmente
+      newProfiles.forEach((profile) => {
+        const existingIndex = this.profilePool.findIndex((p) => p.id === profile.id);
 
-  /**
-   * Obtiene perfiles aleatorios (útil para variedad en las burbujas)
-   * @param count - Cantidad de perfiles aleatorios a obtener
-   * @returns Promesa con array de perfiles aleatorios
-   */
-  public async getRandomProfilePictures(count: number = 20): Promise<UserProfile[]> {
-    try {
-      // Nota: En PostgreSQL puedes usar ORDER BY RANDOM()
-      // En MySQL sería ORDER BY RAND()
-      // Aquí uso una aproximación que funciona en ambos
+        if (existingIndex >= 0) {
+          // Actualizar existente
+          this.profilePool[existingIndex] = profile;
+          this.cache.set(profile.id, profile);
 
-      const users = await this.prisma.user.findMany({
-        select: {
-          name: true,
-          image: true,
-        },
-        where: {
-          image: { not: null },
-        },
-        take: count * 2, // Tomar más para tener variedad después del filtrado
+          this.notifySubscribers({
+            type: 'PROFILE_UPDATED',
+            profile,
+            timestamp: new Date(),
+          });
+        } else {
+          // Añadir nuevo
+          this.profilePool.push(profile);
+          this.cache.set(profile.id, profile);
+
+          this.notifySubscribers({
+            type: 'PROFILE_ADDED',
+            profile,
+            timestamp: new Date(),
+          });
+        }
       });
 
-      // Filtrar y mezclar aleatoriamente
-      const validProfiles = users
-        .filter((user): user is { name: string; image: string } => {
-          return user.image !== null && user.name !== null;
-        })
-        .map((user) => ({
-          name: user.name,
-          image: user.image,
-        }))
-        .sort(() => Math.random() - 0.5) // Mezcla aleatoria
-        .slice(0, count); // Tomar solo la cantidad solicitada
-
-      return validProfiles;
+      console.log(`⚡ Actualización incremental: ${newProfiles.length} perfiles`);
+      return newProfiles;
     } catch (error) {
-      console.error('❌ Error al obtener perfiles aleatorios:', error);
+      console.error('❌ Error en actualización incremental:', error);
       return [];
     }
   }
 
   /**
-   * Obtiene estadísticas de perfiles (útil para debugging)
-   * @returns Promesa con estadísticas de perfiles
+   * 🎲 Perfiles aleatorios del cache (super rápido)
    */
-  public async getProfileStats(): Promise<{
-    totalUsers: number;
-    usersWithImages: number;
-    usersWithoutImages: number;
-    percentageWithImages: number;
-  }> {
-    try {
-      const totalUsers = await this.prisma.user.count();
-      const usersWithImages = await this.prisma.user.count({
-        where: { image: { not: null } },
-      });
-      const usersWithoutImages = totalUsers - usersWithImages;
-      const percentageWithImages =
-        totalUsers > 0 ? Math.round((usersWithImages / totalUsers) * 100) : 0;
+  public getRandomFromCache(count: number = 20): UserProfile[] {
+    if (this.profilePool.length === 0) return [];
 
-      return {
-        totalUsers,
-        usersWithImages,
-        usersWithoutImages,
-        percentageWithImages,
-      };
-    } catch (error) {
-      console.error('❌ Error al obtener estadísticas:', error);
-      return {
-        totalUsers: 0,
-        usersWithImages: 0,
-        usersWithoutImages: 0,
-        percentageWithImages: 0,
-      };
+    const shuffled = [...this.profilePool].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
+  }
+
+  /**
+   * 📊 Estadísticas del cache
+   */
+  public getCacheStats(): {
+    cacheSize: number;
+    lastUpdate: Date;
+    isExpired: boolean;
+    subscriberCount: number;
+    poolRotationIndex: number;
+  } {
+    return {
+      cacheSize: this.cache.size,
+      lastUpdate: this.lastCacheUpdate,
+      isExpired: this.isCacheExpired(),
+      subscriberCount: this.subscribers.size,
+      poolRotationIndex: this.currentPoolIndex,
+    };
+  }
+
+  /**
+   * 🔄 Fuerza rotación del pool (mezcla los perfiles)
+   */
+  public shufflePool(): void {
+    this.profilePool.sort(() => Math.random() - 0.5);
+    this.currentPoolIndex = 0;
+    console.log(`🔀 Pool mezclado: ${this.profilePool.length} perfiles`);
+  }
+
+  /**
+   * 🧹 Limpieza de recursos
+   */
+  public cleanup(): void {
+    this.cache.clear();
+    this.subscribers.clear();
+    this.profilePool = [];
+    console.log('🧹 Servicio limpiado');
+  }
+
+  /**
+   * 🚀 MÉTODO PARA COMPONENTE DE BURBUJAS: Auto-refresh inteligente
+   */
+  public async getProfilesForBubbles(count: number = 20): Promise<{
+    profiles: UserProfile[];
+    isFromCache: boolean;
+    nextRefreshIn: number; // milisegundos
+  }> {
+    const isFromCache = !this.isCacheExpired() && this.profilePool.length > 0;
+
+    let profiles: UserProfile[];
+
+    if (isFromCache) {
+      // Usar rotación si hay suficientes perfiles
+      profiles =
+        this.profilePool.length > count * 2
+          ? this.getRotatingBatch(count)
+          : this.getRandomFromCache(count);
+    } else {
+      // Refresh y obtener nuevos
+      const allProfiles = await this.getProfilePictures();
+      profiles = allProfiles.slice(0, count);
     }
+
+    const nextRefreshIn = this.cacheExpiry - (Date.now() - this.lastCacheUpdate.getTime());
+
+    return {
+      profiles,
+      isFromCache,
+      nextRefreshIn: Math.max(0, nextRefreshIn),
+    };
   }
 }
 
-// Exporta la clase para que pueda ser utilizada en otras partes de tu aplicación
-export default UserProfileService;
+// Singleton instance para uso global
+let serviceInstance: RealtimeUserProfileService | null = null;
+
+export const getRealtimeUserProfileService = (
+  prisma?: PrismaClient
+): RealtimeUserProfileService => {
+  if (!serviceInstance && prisma) {
+    serviceInstance = new RealtimeUserProfileService(prisma);
+  }
+
+  if (!serviceInstance) {
+    throw new Error(
+      'RealtimeUserProfileService no ha sido inicializado. Proporciona una instancia de PrismaClient.'
+    );
+  }
+
+  return serviceInstance;
+};
+
+export default RealtimeUserProfileService;
