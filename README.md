@@ -1,80 +1,214 @@
-# Conacad
+# ConAcad - Sistema Escolar Interno
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+ConAcad es una plataforma educativa moderna desarrollada con Next.js 15, diseñada específicamente para instituciones educativas que necesitan un sistema interno robusto y escalable para la gestión de estudiantes, profesores y contenido académico.
 
-## Getting Started
+## 🎯 Características Principales
 
-First, run the development server:
+### 🔐 Sistema de Autenticación Avanzado
 
-````bash
-npm run dev
-# or
-# Conacad
+- **Autenticación OAuth**: Integración con Google y GitHub
+- **Gestión de Roles**: Sistema diferenciado para alumnos y profesores
+- **Sesiones Seguras**: Implementado con NextAuth.js v5
+- **Middleware de Protección**: Rutas protegidas automáticamente
 
-Este proyecto es una aplicación web construida con [Next.js](https://nextjs.org), inicializada con [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+### 👥 Gestión de Usuarios
 
-## Comenzando
+- **Perfiles Dinámicos**: Sistema de perfiles con imágenes y información personalizada
+- **Roles Diferenciados**: Dashboards específicos para cada tipo de usuario
+- **Comunidad Interactiva**: Panel de burbujas con perfiles de usuarios activos
+- **Servicio de Perfiles en Tiempo Real**: Cache inteligente y actualizaciones incrementales
 
-Para iniciar el servidor de desarrollo:
+### 🎨 Interfaz Moderna
+
+- **Diseño Responsivo**: Optimizado para dispositivos móviles y desktop
+- **Tema Oscuro/Claro**: Soporte completo para temas personalizables
+- **Componentes UI**: Biblioteca completa basada en Shadcn UI y Tailwind CSS
+- **Animaciones Fluidas**: Experiencia de usuario mejorada con Motion
+
+### 🗄️ Base de Datos Robusta
+
+- **PostgreSQL**: Base de datos relacional con Prisma ORM
+- **Migraciones Automáticas**: Control de versiones de esquema
+- **Contenedorización**: Docker Compose para desarrollo local
+- **Panel de Administración**: Adminer incluido para gestión de BD
+
+## 🛠️ Stack Tecnológico
+
+### Frontend
+
+- **Next.js 15**: Framework React con App Router
+- **React 19**: Biblioteca de interfaz de usuario
+- **TypeScript**: Tipado estático para mayor robustez
+- **Tailwind CSS**: Framework de estilos utilitarios
+- **Shadcn UI**: Componentes accesibles y personalizables
+- **Lucide React**: Iconografía moderna y consistente
+
+### Backend
+
+- **Next.js API Routes**: Endpoints serverless
+- **NextAuth.js 5**: Autenticación y autorización
+- **Prisma**: ORM moderno para TypeScript
+- **PostgreSQL**: Base de datos relacional
+- **bcryptjs**: Encriptación de contraseñas
+
+### Herramientas de Desarrollo
+
+- **ESLint**: Linting de código
+- **Prettier**: Formateo automático
+- **TypeScript**: Verificación de tipos
+- **Docker**: Contenedorización de servicios
+
+## 🚀 Instalación y Configuración
+
+### Prerrequisitos
+
+- Node.js 18+
+- Docker y Docker Compose
+- Git
+
+### 1. Clonar el Repositorio
+
+```bash
+git clone <url-del-repositorio>
+cd conacad
+```
+
+### 2. Instalar Dependencias
+
+```bash
+npm install
+# o
+bun install
+```
+
+### 3. Configurar Variables de Entorno
+
+Crea un archivo `.env` basado en el ejemplo proporcionado:
+
+```env
+# Configuración de Entorno
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=tu_clave_secreta_muy_segura
+
+# Proveedores OAuth
+AUTH_GITHUB_ID=tu_github_client_id
+AUTH_GITHUB_SECRET=tu_github_client_secret
+AUTH_GOOGLE_ID=tu_google_client_id
+AUTH_GOOGLE_SECRET=tu_google_client_secret
+
+# Base de Datos PostgreSQL
+DATABASE_URL="postgresql://nextauth_user:nextauth_password@localhost:5432/nextauth_db"
+DATABASE_HOST=localhost
+DATABASE_NAME=nextauth_db
+DATABASE_USER=nextauth_user
+DATABASE_PASSWORD=nextauth_password
+DATABASE_PORT=5432
+```
+
+### 4. Configurar Base de Datos
+
+```bash
+# Iniciar PostgreSQL con Docker
+cd database
+docker-compose up -d
+
+# Ejecutar migraciones
+npx prisma migrate dev
+npx prisma generate
+```
+
+### 5. Iniciar el Servidor de Desarrollo
 
 ```bash
 npm run dev
-# o
-yarn dev
-# o
-pnpm dev
-# o
-bun dev
-````
+```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación en funcionamiento.
+La aplicación estará disponible en `http://localhost:3000`
 
-Puedes comenzar a editar la página modificando `app/page.tsx`. Los cambios se reflejarán automáticamente.
+## 🔧 Scripts Disponibles
 
-Este proyecto utiliza [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) para optimizar y cargar la fuente [Geist](https://vercel.com/font).
+```bash
+# Desarrollo
+npm run dev          # Servidor de desarrollo con Turbopack
+npm run build        # Compilar para producción
+npm run start        # Servidor de producción
+npm run lint         # Ejecutar ESLint
+npm run format       # Formatear código con Prettier
 
-## Scripts disponibles
+# Base de Datos
+npx prisma studio    # Interfaz visual de BD
+npx prisma migrate   # Ejecutar migraciones
+npx prisma generate  # Generar cliente Prisma
+```
 
-- `dev`: Inicia el servidor de desarrollo.
-- `build`: Compila la aplicación para producción.
-- `start`: Inicia la aplicación en modo producción.
-- `lint`: Ejecuta el linter para mantener la calidad del código.
+## 🌐 Configuración de Proveedores OAuth
 
-## Estructura del proyecto
+### Google OAuth
 
-- `app/`: Contiene las páginas y componentes principales.
-- `public/`: Archivos estáticos.
-- `styles/`: Hojas de estilo globales.
+1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita la API de Google+
+4. Configura las credenciales OAuth 2.0
+5. Añade `http://localhost:3000/api/auth/callback/google` como URI de redirección
 
-## Recursos útiles
+### GitHub OAuth
 
-- [Documentación de Next.js](https://nextjs.org/docs)
-- [Tutorial interactivo de Next.js](https://nextjs.org/learn)
-- [Repositorio en GitHub de Next.js](https://github.com/vercel/next.js)
+1. Ve a GitHub Settings > Developer settings > OAuth Apps
+2. Crea una nueva OAuth App
+3. Configura la Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
 
-## Despliegue
+## 🎭 Roles y Permisos
 
-La forma más sencilla de desplegar tu aplicación Next.js es usando [Vercel](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
+### Alumno
 
-Consulta la [documentación de despliegue de Next.js](https://nextjs.org/docs/app/building-your-application/deploying) para más detalles.
+- Dashboard personalizado con información académica
+- Acceso a recursos educativos
+- Perfil personalizable
+- Participación en comunidad
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Profesor
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Dashboard con herramientas de gestión
+- Administración de contenido
+- Seguimiento de estudiantes
+- Herramientas de evaluación
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔒 Seguridad
 
-## Learn More
+- **Autenticación JWT**: Tokens seguros con expiración
+- **Middleware de Protección**: Verificación automática de rutas
+- **Validación de Datos**: Esquemas Zod para entrada de datos
+- **Encriptación**: Contraseñas hasheadas con bcrypt
+- **Variables de Entorno**: Configuración sensible protegida
 
-To learn more about Next.js, take a look at the following resources:
+## 🚀 Despliegue
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Vercel (Recomendado)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Conecta tu repositorio con Vercel
+2. Configura las variables de entorno
+3. Despliega automáticamente
 
-## Deploy on Vercel
+### Docker
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Construir imagen
+docker build -t conacad .
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Ejecutar contenedor
+docker run -p 3000:3000 conacad
+```
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📝 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+
+**ConAcad** - Transformando la educación con tecnología moderna 🎓
