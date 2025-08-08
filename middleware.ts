@@ -1,29 +1,27 @@
+// middleware.ts
 import { auth } from '@/lib/auth';
-import { publicRoutes, authRoutes, apiAuthPrefix, defaultRedirect } from '@/lib/routes';
+import { publicRoutes, authRoutes, defaultRedirect } from '@/lib/routes';
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const path = nextUrl.pathname;
 
-  // 1) API routes
-  if (path.startsWith(apiAuthPrefix)) {
-    return null;
-  }
-
-  // 2) Auth routes + logueado = dashboard
+  // 1) Si ya está logueado y va a rutas de auth, lo mandamos al dashboard
   if (authRoutes.includes(path) && isLoggedIn) {
     return Response.redirect(new URL(defaultRedirect, nextUrl));
   }
 
-  // 3) Rutas privadas + no logueado = auth/sign-in (NO sign-in)
-  if (!publicRoutes.includes(path) && !authRoutes.includes(path) && !isLoggedIn) {
-    return Response.redirect(new URL('/sign-in', nextUrl)); // ← Cambio aquí
+  // 2) Si NO está logueado e intenta entrar a rutas privadas → /sign-in
+  const isPublic = publicRoutes.includes(path) || authRoutes.includes(path);
+  if (!isPublic && !isLoggedIn) {
+    return Response.redirect(new URL('/sign-in', nextUrl));
   }
 
   return null;
 });
 
 export const config = {
+  // ✅ Excluye APIs y estáticos para no romper assets/SSR
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

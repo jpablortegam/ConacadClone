@@ -317,8 +317,9 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
   const animationIdRef = useRef<number | null>(null);
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
 
-  const [userProfiles] = useState<UserProfile[]>(profilePictures);
+  const [userProfiles, setUserProfiles] = useState<UserProfile[]>(profilePictures);
   const usedProfilesRef = useRef<Set<number>>(new Set());
+  const profileRotationIndexRef = useRef<number>(0);
 
   const lastDimensionsRef = useRef<{ width: number; height: number } | null>(null);
   const isMobileRef = useRef<boolean>(false);
@@ -335,27 +336,49 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     }
   }, [profilePictures]);
 
+  // 🎯 Función mejorada para obtener perfil con rotación inteligente
   const getRandomProfile = useCallback((): UserProfile | null => {
     if (userProfiles.length === 0) return null;
 
-    if (usedProfilesRef.current.size >= userProfiles.length) {
-      usedProfilesRef.current.clear();
+    // 🔄 Rotación cíclica para máxima variedad
+    if (userProfiles.length >= 10) { // Solo rotar si hay suficientes perfiles
+      const profile = userProfiles[profileRotationIndexRef.current % userProfiles.length];
+      profileRotationIndexRef.current++;
+
+      // Reiniciar rotación cada 2 ciclos completos para variedad
+      if (profileRotationIndexRef.current >= userProfiles.length * 2) {
+        profileRotationIndexRef.current = 0;
+        // Mezclar array para nueva variedad
+        const shuffled = [...userProfiles].sort(() => Math.random() - 0.5);
+        setUserProfiles(shuffled);
+        console.log(`🔀 Perfiles mezclados para nueva rotación`);
+      }
+
+      console.log(`🎯 Rotación: perfil ${profileRotationIndexRef.current}/${userProfiles.length} (${profile.name})`);
+      return profile;
+    } else {
+      // Fallback al sistema original para pocos perfiles
+      if (usedProfilesRef.current.size >= userProfiles.length) {
+        usedProfilesRef.current.clear();
+        console.log(`🔄 Reset: todos los perfiles usados, reiniciando pool`);
+      }
+
+      const availableProfiles = userProfiles.filter((_, index) =>
+        !usedProfilesRef.current.has(index)
+      );
+
+      if (availableProfiles.length === 0) return null;
+
+      const randomProfile = availableProfiles[Math.floor(Math.random() * availableProfiles.length)];
+      const originalIndex = userProfiles.findIndex(p => p === randomProfile);
+      usedProfilesRef.current.add(originalIndex);
+
+      console.log(`🎲 Random: ${randomProfile.name} (${usedProfilesRef.current.size}/${userProfiles.length} usados)`);
+      return randomProfile;
     }
-
-    const availableProfiles = userProfiles.filter((_, index) =>
-      !usedProfilesRef.current.has(index)
-    );
-
-    if (availableProfiles.length === 0) return null;
-
-    const randomProfile = availableProfiles[Math.floor(Math.random() * availableProfiles.length)];
-    const originalIndex = userProfiles.findIndex(p => p === randomProfile);
-    usedProfilesRef.current.add(originalIndex);
-
-    return randomProfile;
   }, [userProfiles]);
 
-  const createBubbleProgressively = useCallback((w: number, h: number) => {
+  const createBubbleProgressively = useCallback((w: number, h: number, forceNewProfile: boolean = false) => {
     const isMobile = w < BUBBLE_CONFIG.mobileBreakpoint;
     const minR = isMobile ? BUBBLE_CONFIG.mobileMinRadius : BUBBLE_CONFIG.desktopMinRadius;
     const maxR = isMobile ? BUBBLE_CONFIG.mobileMaxRadius : BUBBLE_CONFIG.desktopMaxRadius;
@@ -365,12 +388,26 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     const x = Math.random() * (w - 2 * maxR) + maxR;
     const y = Math.random() * (h - 2 * maxR) + maxR;
 
-    // Decidir si será un perfil de usuario o burbuja normal
+    // 🎯 Lógica mejorada para seleccionar perfiles
+    let profile: UserProfile | null = null;
     const shouldBeProfile = userProfiles.length > 0 && Math.random() < BUBBLE_CONFIG.profileBubbleRatio;
-    const profile = shouldBeProfile ? getRandomProfile() : null;
+
+    if (shouldBeProfile) {
+      profile = getRandomProfile();
+
+      // 🔥 Si es una burbuja de reemplazo (explosión), garantizar perfil diferente
+      if (forceNewProfile && profile) {
+        console.log(`💥 Nueva burbuja post-explosión: ${profile.name}`);
+      }
+    }
 
     const bubble = new Bubble(x, y, r, getRandomNeutralColor(), false, profile || undefined);
     bubblesRef.current.push(bubble);
+
+    // Log solo para perfiles
+    if (profile) {
+      console.log(`🎈 Nueva burbuja con perfil: ${profile.name} (${r.toFixed(1)}px)`);
+    }
   }, [getRandomProfile, userProfiles.length]);
 
   const initBubbles = useCallback((w: number, h: number) => {
@@ -684,28 +721,43 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       respawnQueueRef.current.push(Date.now() + BUBBLE_CONFIG.respawnDelay);
     }
   }, []);
-
   return (
     <section
       id="comunidad"
-      className="bg-background bg-opacity-90 rounded-lg shadow-xl p-8 mb-10 text-center"
+      className="
+        container mx-auto px-4                   /* coincide con el ancho de tu navbar */
+        bg-card/90 backdrop-blur-sm
+        border border-border/20 rounded-lg
+        shadow-lg dark:shadow-2xl dark:shadow-black/25
+        p-8 mb-10 text-center
+        transition-all duration-300
+      "
     >
       <h2 className="text-4xl font-extrabold mb-6 text-primary">
         Nuestra Comunidad
       </h2>
-      <p className="text-sm text-gray-600 mb-4">
+
+      <p className="text-sm text-muted-foreground mb-4">
         {userProfiles.length > 0
-          ? `${userProfiles.length} miembros activos • Haz clic en las burbujas para interactuar`
-          : "Cargando comunidad..."
-        }
+          ? `${userProfiles.length} miembros activos • Haz clic en las burbujas para interactuar • Auto-refresh cada 5min`
+          : 'Cargando comunidad...'}
       </p>
-      <div className="relative w-full h-96 bg-200 rounded-lg overflow-hidden border-2 border-gray-200">
+
+      <div
+        className="
+          relative w-full h-96
+          bg-muted/30 dark:bg-muted/10
+          rounded-lg overflow-hidden
+          border-2 border-border/50 dark:border-border/30
+          transition-colors duration-300
+        "
+      >
         <canvas
           ref={canvasRef}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          style={{ display: "block" }}
+          style={{ display: 'block' }}
           aria-label="Animación interactiva de burbujas con avatares de usuarios - Las burbujas se alejan del cursor y puedes hacer clic para explotarlas"
         />
       </div>
