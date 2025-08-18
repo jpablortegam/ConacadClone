@@ -1,8 +1,10 @@
 // middleware.ts
 import { auth } from '@/lib/auth';
-import { publicRoutes, authRoutes, defaultRedirect } from '@/lib/routes';
+import { publicRoutes, authRoutes, defaultRedirect } from '@/constants/routes';
+import type { NextRequest } from 'next/server';
+import type { Session } from 'next-auth';
 
-export default auth((req) => {
+export default auth((req: NextRequest & { auth: Session | null }) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const path = nextUrl.pathname;

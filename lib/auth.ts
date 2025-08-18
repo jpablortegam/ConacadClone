@@ -33,7 +33,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     async session({ session, token, user }) {
       // En JWT, usa token; si algún día vuelves a DB, usa user?.id
       if (session.user && (token?.id || user?.id)) {
-        // @ts-ignore (si tu tipo de Session no incluye id)
+        // (si tu tipo de Session no incluye id)
         session.user.id = (token?.id ?? user?.id) as string;
       }
       return session;
