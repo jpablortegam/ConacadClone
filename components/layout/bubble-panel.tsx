@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useCallback, useState, useMemo } from "react";
 
 // Paleta Neutral de Tailwind en hex para burbujas sin imagen
 const TAILWIND_NEUTRAL = [
@@ -14,6 +14,11 @@ const TAILWIND_NEUTRAL = [
 type ColorHex = string;
 type UserProfile = {
   name: string;
+  image: string;
+};
+
+type ApiAvatar = {
+  name?: string;
   image: string;
 };
 
@@ -47,6 +52,76 @@ const BUBBLE_CONFIG = {
   avatarBorderWidth: 3,
   profileBubbleRatio: 0.7,
 } as const;
+
+// Hook personalizado para cargar usuarios de forma no bloqueante
+const useUserProfiles = () => {
+  const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    const fetchUsers = async () => {
+      try {
+        // Delay inicial para no bloquear el render principal
+        timeoutId = setTimeout(async () => {
+          if (!mounted) return;
+
+          try {
+            const response = await fetch('/api/avatars?limit=25&size=medium');
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch user profiles');
+            }
+
+            const data = await response.json();
+
+            if (!mounted) return;
+
+            // Transformar los datos al formato esperado
+            const profiles: UserProfile[] = data.avatars?.map((avatar: ApiAvatar) => ({
+              name: avatar.name || 'Usuario',
+              image: avatar.image
+            })) || [];
+
+            setUserProfiles(profiles);
+            console.log(`✅ Cargados ${profiles.length} perfiles desde la API`);
+          } catch (fetchError) {
+            if (mounted) {
+              console.warn('⚠️ Error cargando perfiles:', fetchError);
+              setError(fetchError instanceof Error ? fetchError.message : 'Error desconocido');
+              setUserProfiles([]);
+            }
+          } finally {
+            if (mounted) {
+              setIsLoading(false);
+            }
+          }
+        }, 300);
+      } catch (err) {
+        if (mounted) {
+          console.warn('⚠️ Error en setup:', err);
+          setError(err instanceof Error ? err.message : 'Error desconocido');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchUsers();
+
+    // Cleanup function
+    return () => {
+      mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []); // Empty dependency array - solo se ejecuta una vez
+
+  return { userProfiles, isLoading, error };
+};
 
 class Bubble {
   x: number;
@@ -295,6 +370,41 @@ const isMobileDevice = (): boolean => {
   );
 };
 
+// Componente de carga skeleton optimizado
+const BubblesSkeleton: React.FC = () => (
+  <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[2px] z-10">
+    <div className="flex flex-col items-center gap-4">
+      {/* Burbujas skeleton animadas */}
+      <div className="flex gap-2">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div
+            key={i}
+            className={`
+              w-8 h-8 bg-gradient-to-br from-primary/20 to-primary/5 
+              rounded-full animate-pulse border border-border/20
+            `}
+            style={{
+              animationDelay: `${i * 0.2}s`,
+              animationDuration: '1.5s'
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Texto de carga */}
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <span className="text-sm font-medium">Conectando con la comunidad...</span>
+      </div>
+
+      {/* Indicador de progreso sutil */}
+      <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-primary/50 to-primary animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
+
 interface CommunitySeccionProps {
   profilePictures?: UserProfile[];
 }
@@ -309,29 +419,43 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
   const animationIdRef = useRef<number | null>(null);
   const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
 
-  const [userProfiles, setUserProfiles] = useState<UserProfile[]>(
-    profilePictures
-  );
+  // Hook para cargar usuarios de forma no bloqueante
+  const { userProfiles: apiUserProfiles, isLoading, error } = useUserProfiles();
+
+  // Estados locales
   const usedProfilesRef = useRef<Set<number>>(new Set());
   const profileRotationIndexRef = useRef<number>(0);
-
-  const lastDimensionsRef = useRef<{ width: number; height: number } | null>(
-    null
-  );
+  const lastDimensionsRef = useRef<{ width: number; height: number } | null>(null);
   const isMobileRef = useRef<boolean>(false);
   const spawnCounterRef = useRef<number>(0);
+
+  // Estado para controlar si el componente está listo
+  const [isReady, setIsReady] = useState(false);
+
+  // ✅ FIX: Usar useMemo para combinar perfiles y evitar el bucle infinito
+  const userProfiles = useMemo(() => {
+    const combined = [...profilePictures, ...apiUserProfiles];
+    if (combined.length > 0) {
+      console.log(`✅ Total perfiles disponibles: ${combined.length}`);
+    }
+    return combined;
+  }, [profilePictures, apiUserProfiles]);
 
   useEffect(() => {
     isMobileRef.current = isMobileDevice();
   }, []);
 
+  // Marcar como listo cuando termine de cargar
   useEffect(() => {
-    if (profilePictures && profilePictures.length > 0) {
-      setUserProfiles(profilePictures);
-      usedProfilesRef.current.clear();
-      console.log(`✅ Cargados ${profilePictures.length} perfiles para burbujas`);
+    if (!isLoading) {
+      // Pequeño delay para asegurar que el render principal ya haya terminado
+      const timer = setTimeout(() => {
+        setIsReady(true);
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
-  }, [profilePictures]);
+  }, [isLoading]);
 
   const getRandomProfile = useCallback((): UserProfile | null => {
     if (userProfiles.length === 0) return null;
@@ -339,14 +463,9 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       const profile =
         userProfiles[profileRotationIndexRef.current % userProfiles.length];
       profileRotationIndexRef.current++;
-      if (
-        profileRotationIndexRef.current >=
-        userProfiles.length * 2
-      ) {
+      if (profileRotationIndexRef.current >= userProfiles.length * 2) {
         profileRotationIndexRef.current = 0;
-        const shuffled = [...userProfiles].sort(() => Math.random() - 0.5);
-        setUserProfiles(shuffled);
-        console.log(`🔀 Perfiles mezclados para nueva rotación`);
+        console.log(`🔀 Reiniciando rotación de perfiles`);
       }
       return profile;
     } else {
@@ -473,10 +592,12 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       }
 
       resizeTimeoutRef.current = window.setTimeout(() => {
-        initBubbles(w, h);
+        if (isReady) {
+          initBubbles(w, h);
+        }
       }, BUBBLE_CONFIG.resizeDebounceTime);
     }
-  }, [initBubbles, isSignificantResize]);
+  }, [initBubbles, isSignificantResize, isReady]);
 
   useEffect(() => {
     window.addEventListener("resize", handleResize);
@@ -489,7 +610,22 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     };
   }, [handleResize]);
 
+  // Inicializar burbujas solo cuando esté listo
   useEffect(() => {
+    if (isReady && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const parent = canvas.parentElement;
+      if (parent) {
+        const w = parent.clientWidth;
+        const h = parent.clientHeight;
+        initBubbles(w, h);
+      }
+    }
+  }, [isReady, initBubbles]);
+
+  useEffect(() => {
+    if (!isReady) return;
+
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
@@ -636,9 +772,11 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
         cancelAnimationFrame(animationIdRef.current);
       }
     };
-  }, []);
+  }, [isReady]);
 
   useEffect(() => {
+    if (!isReady) return;
+
     const id = setInterval(() => {
       const poppableBubbles = bubblesRef.current.filter(
         (b) =>
@@ -661,9 +799,11 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     }, BUBBLE_CONFIG.autoPopInterval);
 
     return () => clearInterval(id);
-  }, []);
+  }, [isReady]);
 
   useEffect(() => {
+    if (!isReady) return;
+
     const id = setInterval(() => {
       const now = Date.now();
       const queue = respawnQueueRef.current;
@@ -677,9 +817,11 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
     }, BUBBLE_CONFIG.rateLimitInterval);
 
     return () => clearInterval(id);
-  }, [createBubbleProgressively]);
+  }, [createBubbleProgressively, isReady]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isReady) return;
+
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
 
@@ -687,13 +829,15 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
-  }, []);
+  }, [isReady]);
 
   const handleMouseLeave = useCallback(() => {
     mousePositionRef.current = null;
   }, []);
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isReady) return;
+
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -720,7 +864,7 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
 
       respawnQueueRef.current.push(Date.now() + BUBBLE_CONFIG.respawnDelay);
     }
-  }, []);
+  }, [isReady]);
 
   return (
     <section
@@ -738,8 +882,6 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
         Nuestra Comunidad
       </h2>
 
-      {/* 👇🏻 Quitamos el párrafo de 'Cargando comunidad...' */}
-
       <div
         className="
           relative w-full h-96
@@ -749,12 +891,20 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
           transition-colors duration-300
         "
       >
-        {/* 👇🏻 Overlay borroso de carga como en tu primer componente */}
-        {userProfiles.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <span>Cargando perfiles...</span>
+        {/* Overlay de carga mejorado */}
+        {!isReady && <BubblesSkeleton />}
+
+        {/* Mensaje de error si falla la carga de API (opcional) */}
+        {error && isReady && userProfiles.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-sm z-10">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
+                <span className="text-yellow-600 dark:text-yellow-400">⚠️</span>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Modo sin conexión</p>
+                <p className="text-xs opacity-75">Mostrando burbujas básicas</p>
+              </div>
             </div>
           </div>
         )}
@@ -767,6 +917,11 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
           style={{ display: "block" }}
           aria-label="Animación interactiva de burbujas con avatares de usuarios - Las burbujas se alejan del cursor y puedes hacer clic para explotarlas"
         />
+      </div>
+
+      {/* Información adicional de la comunidad (se muestra inmediatamente) */}
+      <div className="mt-6 text-sm text-muted-foreground">
+        <p>Haz clic en las burbujas para interactuar • Mueve el cursor para verlas en acción</p>
       </div>
     </section>
   );

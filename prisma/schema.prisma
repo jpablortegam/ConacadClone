@@ -22,6 +22,7 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  imageLastSync DateTime? @map("image_last_sync") // 🆕 Nuevo campo para tracking de sincronización
   roleId        String?   @map("roleId")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
