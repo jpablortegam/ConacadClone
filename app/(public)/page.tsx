@@ -3,7 +3,8 @@ import { Suspense } from 'react';
 import NavbarPublic from '@/components/layout/navbars/navbar-public';
 import { BannerPublic } from '@/components/layout/banner-public';
 import { Footer } from '@/components/layout/footer';
-import CommunitySection from '@/components/layout/bubble-panel';
+// ✅ Cambio principal: Nuevo import desde la estructura refactorizada
+import { CommunitySection } from '@/components/community';
 
 // Componente de fallback mientras carga CommunitySection
 function CommunityFallback() {
