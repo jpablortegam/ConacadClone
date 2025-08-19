@@ -33,7 +33,7 @@ export default function NavbarPublic() {
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -119,15 +119,13 @@ export default function NavbarPublic() {
   return (
     <>
       <header
-        className={`sticky top-0 z-40 transition-all duration-200 ${
-          scrolled
-            ? 'bg-primary-foreground/90 shadow-lg backdrop-blur-lg'
-            : 'bg-primary-foreground/100'
-        }`}
+        className={`sticky top-0 z-40 transition-all duration-200 ${scrolled
+          ? 'bg-primary-foreground/90 shadow-lg backdrop-blur-lg'
+          : 'bg-primary-foreground/100'
+          }`}
       >
         <div className="container mx-auto flex h-20 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <Code size={28} />
             <span className="text-lg font-bold">Conacad</span>
           </Link>
 

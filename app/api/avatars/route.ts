@@ -152,8 +152,6 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
     });
   } catch (error) {
-    console.error('❌ Error updating sync timestamps:', error);
-
     return NextResponse.json({ error: 'Failed to update sync timestamps' }, { status: 500 });
   }
 }

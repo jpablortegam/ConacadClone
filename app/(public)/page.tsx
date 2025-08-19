@@ -22,10 +22,6 @@ function CommunityFallback() {
           </div>
         </div>
       </div>
-
-      <div className="mt-6 text-sm text-muted-foreground">
-        <p>Haz clic en las burbujas para interactuar • Mueve el cursor para verlas en acción</p>
-      </div>
     </section>
   );
 }

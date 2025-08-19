@@ -915,13 +915,7 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           style={{ display: "block" }}
-          aria-label="Animación interactiva de burbujas con avatares de usuarios - Las burbujas se alejan del cursor y puedes hacer clic para explotarlas"
         />
-      </div>
-
-      {/* Información adicional de la comunidad (se muestra inmediatamente) */}
-      <div className="mt-6 text-sm text-muted-foreground">
-        <p>Haz clic en las burbujas para interactuar • Mueve el cursor para verlas en acción</p>
       </div>
     </section>
   );
