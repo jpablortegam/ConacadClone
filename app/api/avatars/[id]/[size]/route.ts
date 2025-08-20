@@ -1,28 +1,43 @@
 // app/api/avatars/[id]/[size]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ensureAvatarInStorage, AvatarSize } from '@/lib/avatars';
+import { ensureAvatarInStorage, type AvatarSize } from '@/lib/avatars';
 
 // ⚠️ usa sharp → Node runtime
 export const runtime = 'nodejs';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string; size: AvatarSize } }
+  context: { params: { id: string; size: string } } // 👈 tipado explícito y simple
 ) {
-  const { id } = params;
-  const size: AvatarSize = (
-    ['small', 'medium', 'large'].includes(params.size) ? params.size : 'medium'
+  const { id, size } = context.params;
+
+  const validSize = (
+    ['small', 'medium', 'large'].includes(size) ? (size as AvatarSize) : 'medium'
   ) as AvatarSize;
 
-  const user = await prisma.user.findUnique({ where: { id }, select: { image: true } });
-  if (!user?.image) return new NextResponse('Not found', { status: 404 });
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { image: true },
+  });
+
+  if (!user?.image) {
+    return new NextResponse('Not found', { status: 404 });
+  }
 
   try {
-    const url = await ensureAvatarInStorage({ userId: id, upstreamUrl: user.image, size });
+    const url = await ensureAvatarInStorage({
+      userId: id,
+      upstreamUrl: user.image,
+      size: validSize,
+    });
+
     return NextResponse.redirect(url, {
       status: 302,
-      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+      headers: {
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
     });
   } catch {
     return new NextResponse('Bad Gateway', { status: 502 });
