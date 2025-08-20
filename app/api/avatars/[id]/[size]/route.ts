@@ -9,9 +9,9 @@ export const runtime = 'nodejs';
 
 export async function GET(
   _req: NextRequest,
-  context: { params: { id: string; size: string } } // 👈 tipado explícito y simple
+  context: { params: Promise<{ id: string; size: string }> } // 👈 tipado explícito y simple
 ) {
-  const { id, size } = context.params;
+  const { id, size } = await context.params;
 
   const validSize = (
     ['small', 'medium', 'large'].includes(size) ? (size as AvatarSize) : 'medium'
