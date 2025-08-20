@@ -49,10 +49,10 @@ export const useUserProfiles = (): UseUserProfilesReturn => {
             );
 
             setUserProfiles(uniqueProfiles);
-            console.log(`✅ Cargados ${uniqueProfiles.length} perfiles únicos desde la API`);
+            // console.log(`✅ Cargados ${uniqueProfiles.length} perfiles únicos desde la API`);
           } catch (fetchError) {
             if (mounted) {
-              console.warn('⚠️ Error cargando perfiles:', fetchError);
+              // console.warn('⚠️ Error cargando perfiles:', fetchError);
               setError(fetchError instanceof Error ? fetchError.message : 'Error desconocido');
               setUserProfiles([]);
             }
@@ -64,7 +64,7 @@ export const useUserProfiles = (): UseUserProfilesReturn => {
         }, 500); // ✅ Aumentado de 300ms a 500ms
       } catch (err) {
         if (mounted) {
-          console.warn('⚠️ Error en setup:', err);
+          // console.warn('⚠️ Error en setup:', err);
           setError(err instanceof Error ? err.message : 'Error desconocido');
           setIsLoading(false);
         }

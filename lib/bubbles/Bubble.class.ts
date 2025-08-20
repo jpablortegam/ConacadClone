@@ -7,6 +7,7 @@ import type {
   MousePosition,
 } from '@/types/bubbles';
 import { BUBBLE_CONFIG } from './bubbleConfig';
+import { loadSharedImage } from '@/lib/imageLoader'; // 👈 nuevo import
 
 export class Bubble {
   x: number;
@@ -26,7 +27,7 @@ export class Bubble {
   userProfile: UserProfile | null = null;
   imageLoaded = false;
   imageElement: HTMLImageElement | null = null;
-  imageLoadAttempted = false; // ✅ Nuevo: Evitar múltiples intentos de carga
+  imageLoadAttempted = false;
 
   constructor(
     x: number,
@@ -54,61 +55,30 @@ export class Bubble {
       this.targetOpacity = 0;
     }
 
-    // ✅ Solo cargar imagen si tenemos perfil y no es partícula
     if (this.userProfile && !isParticle && !this.imageLoadAttempted) {
       this.loadImage();
     }
   }
 
-  /**
-   * Carga la imagen del perfil de usuario con manejo de errores mejorado
-   */
   private loadImage(): void {
     if (!this.userProfile || this.imageLoadAttempted) return;
+    this.imageLoadAttempted = true;
 
-    this.imageLoadAttempted = true; // ✅ Marcar como intentado inmediatamente
-
-    this.imageElement = new Image();
-    this.imageElement.crossOrigin = 'anonymous';
-
-    // ✅ Timeout para evitar requests colgados
-    const imageUrl = this.userProfile.image; // Capture URL before nullifying
-    const timeoutId = setTimeout(() => {
-      if (this.imageElement && !this.imageLoaded) {
+    const url = this.userProfile.image; // /api/avatars/:id/:size → redirige a Supabase
+    loadSharedImage(url)
+      .then((img) => {
+        this.imageElement = img;
+        this.imageLoaded = true;
+      })
+      .catch((err) => {
+        console.warn('⚠️ Error cargando imagen:', err);
         this.userProfile = null;
-        this.imageLoaded = false;
-        console.warn(`⚠️ Timeout cargando imagen: ${imageUrl}`);
-      }
-    }, 5000);
-
-    this.imageElement.onload = () => {
-      clearTimeout(timeoutId);
-      this.imageLoaded = true;
-    };
-
-    this.imageElement.onerror = (error) => {
-      clearTimeout(timeoutId);
-      console.warn(`⚠️ Error cargando imagen:`, error);
-      this.userProfile = null;
-      this.imageLoaded = false;
-    };
-
-    // ✅ Agregar cache busting y parámetros de optimización
-    if (imageUrl.includes('googleusercontent.com')) {
-      // Para imágenes de Google, usar parámetros más conservadores
-      this.imageElement.src = imageUrl.replace(/=s\d+-c/, '=s64-c');
-    } else {
-      this.imageElement.src = imageUrl;
-    }
+        this.imageLoaded = false; // fallback a simple bubble
+      });
   }
 
-  /**
-   * Dibuja la burbuja en el canvas
-   */
   draw(ctx: CanvasRenderingContext2D, canvas: CanvasDimensions): void {
     const margin = this.radius + BUBBLE_CONFIG.cullDistance;
-
-    // Culling: no dibujar burbujas fuera del viewport
     if (
       this.x < -margin ||
       this.x > canvas.width + margin ||
@@ -123,13 +93,11 @@ export class Bubble {
 
     let r = this.radius;
 
-    // Animación de spawn
     if (this.spawnAnimationProgress < 1) {
       const easeOut = 1 - Math.pow(1 - this.spawnAnimationProgress, 3);
       r = this.targetRadius * easeOut;
     }
 
-    // Animación de pop
     if (this.popAnimationProgress > 0 && this.popAnimationProgress < 1) {
       r =
         this.radius *
@@ -141,27 +109,21 @@ export class Bubble {
     ctx.beginPath();
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
 
-    // Dibujar avatar o burbuja simple
     if (this.userProfile && this.imageLoaded && this.imageElement) {
       this.drawAvatar(ctx, r);
     } else {
-      this.drawSimpleBubble(ctx, r);
+      this.drawSimpleBubble(ctx);
     }
 
     ctx.restore();
   }
 
-  /**
-   * Dibuja una burbuja con avatar
-   */
   private drawAvatar(ctx: CanvasRenderingContext2D, radius: number): void {
     try {
-      // Recortar para el avatar
       ctx.clip();
       ctx.fillStyle = '#f8f9fa';
       ctx.fill();
 
-      // Dibujar imagen solo si está completamente cargada
       if (this.imageElement?.complete && this.imageElement.naturalWidth > 0) {
         const imgRadius = radius - BUBBLE_CONFIG.avatarPadding;
         const imgSize = imgRadius * 2;
@@ -172,14 +134,12 @@ export class Bubble {
       ctx.save();
       ctx.globalAlpha = this.opacity;
 
-      // Borde principal
       ctx.beginPath();
       ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
       ctx.lineWidth = BUBBLE_CONFIG.avatarBorderWidth;
       ctx.strokeStyle = `rgba(59, 130, 246, ${this.opacity * 0.8})`;
       ctx.stroke();
 
-      // Borde interno
       ctx.beginPath();
       ctx.arc(this.x, this.y, radius - BUBBLE_CONFIG.avatarBorderWidth / 2, 0, Math.PI * 2);
       ctx.lineWidth = 1;
@@ -187,16 +147,11 @@ export class Bubble {
       ctx.stroke();
     } catch (error) {
       console.warn('⚠️ Error dibujando avatar:', error);
-      // Fallback a burbuja simple
-      this.drawSimpleBubble(ctx, radius);
+      this.drawSimpleBubble(ctx);
     }
   }
 
-  /**
-   * Dibuja una burbuja simple sin avatar
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private drawSimpleBubble(ctx: CanvasRenderingContext2D, radius: number): void {
+  private drawSimpleBubble(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = this.color;
     ctx.fill();
     ctx.lineWidth = 3;
@@ -204,50 +159,35 @@ export class Bubble {
     ctx.stroke();
   }
 
-  /**
-   * Actualiza la lógica de la burbuja
-   */
   update(canvas: CanvasDimensions, mousePos?: MousePosition): void {
     this.age++;
 
-    // Animación de spawn
     if (this.spawnAnimationProgress < 1) {
       this.spawnAnimationProgress += 1 / BUBBLE_CONFIG.spawnAnimationDuration;
       this.radius = this.targetRadius * (1 - Math.pow(1 - this.spawnAnimationProgress, 3));
     }
 
-    // Actualizar opacidad
     if (this.opacity < this.targetOpacity) {
       this.opacity += (this.targetOpacity - this.opacity) * 0.1;
     } else if (this.opacity > this.targetOpacity) {
       this.opacity += (this.targetOpacity - this.opacity) * 0.05;
     }
 
-    // Repulsión del mouse
     if (mousePos && !this.isParticle && this.popAnimationProgress === 0) {
       this.handleMouseRepulsion(mousePos);
     }
 
-    // Aplicar fricción y mover
     this.velocity.x *= BUBBLE_CONFIG.friction;
     this.velocity.y *= BUBBLE_CONFIG.friction;
     this.x += this.velocity.x;
     this.y += this.velocity.y;
 
-    // Manejo de colisiones con bordes
     this.handleBoundaryCollisions(canvas);
 
-    // Actualizar estado según tipo de burbuja
-    if (this.isParticle) {
-      this.updateParticle();
-    } else if (this.popAnimationProgress > 0) {
-      this.updatePopAnimation();
-    }
+    if (this.isParticle) this.updateParticle();
+    else if (this.popAnimationProgress > 0) this.updatePopAnimation();
   }
 
-  /**
-   * Maneja la repulsión del mouse
-   */
   private handleMouseRepulsion(mousePos: MousePosition): void {
     const dx = this.x - mousePos.x;
     const dy = this.y - mousePos.y;
@@ -257,15 +197,11 @@ export class Bubble {
       const force = (1 - distance / BUBBLE_CONFIG.maxRepelDistance) * BUBBLE_CONFIG.mouseRepelForce;
       const repelX = (dx / distance) * force;
       const repelY = (dy / distance) * force;
-
       this.velocity.x += repelX;
       this.velocity.y += repelY;
     }
   }
 
-  /**
-   * Maneja las colisiones con los bordes del canvas
-   */
   private handleBoundaryCollisions(canvas: CanvasDimensions): void {
     const d = BUBBLE_CONFIG.bounceDamping;
 
@@ -282,34 +218,19 @@ export class Bubble {
     }
   }
 
-  /**
-   * Actualiza el estado de las partículas
-   */
   private updateParticle(): void {
     this.opacity -= 0.02;
     this.radius -= 0.1;
-    if (this.opacity <= 0 || this.radius <= 0.1) {
-      this.markForRemoval = true;
-    }
+    if (this.opacity <= 0 || this.radius <= 0.1) this.markForRemoval = true;
   }
 
-  /**
-   * Actualiza la animación de explosión
-   */
   private updatePopAnimation(): void {
     this.popAnimationProgress += 1 / BUBBLE_CONFIG.popAnimationDuration;
-    if (this.popAnimationProgress >= 1) {
-      this.markForRemoval = true;
-    }
+    if (this.popAnimationProgress >= 1) this.markForRemoval = true;
   }
 
-  /**
-   * Hace explotar la burbuja creando partículas
-   */
   pop(): Bubble[] {
-    if (!this.isParticle) {
-      this.popAnimationProgress = 0.01;
-    }
+    if (!this.isParticle) this.popAnimationProgress = 0.01;
 
     const fragments: Bubble[] = [];
     for (let i = 0; i < BUBBLE_CONFIG.particleCount; i++) {
@@ -319,7 +240,6 @@ export class Bubble {
       const validRadius = Math.max(r, 0.5);
       fragments.push(new Bubble(this.x, this.y, validRadius, this.color, true));
     }
-
     return fragments;
   }
 }
