@@ -46,13 +46,13 @@ const BubbleCanvas: React.FC<BubbleCanvasProps> = ({ userProfiles, isReady }) =>
       profileRotationIndexRef.current++;
       if (profileRotationIndexRef.current >= userProfiles.length * 2) {
         profileRotationIndexRef.current = 0;
-        console.log(`🔀 Reiniciando rotación de perfiles`);
+        //console.log(`🔀 Reiniciando rotación de perfiles`);
       }
       return profile;
     } else {
       if (usedProfilesRef.current.size >= userProfiles.length) {
         usedProfilesRef.current.clear();
-        console.log(`🔄 Reset: todos los perfiles usados, reiniciando pool`);
+        //console.log(`🔄 Reset: todos los perfiles usados, reiniciando pool`);
       }
 
       const availableProfiles = userProfiles.filter(
@@ -104,7 +104,7 @@ const BubbleCanvas: React.FC<BubbleCanvasProps> = ({ userProfiles, isReady }) =>
           spawnCounterRef.current++;
         } else {
           clearInterval(spawnInterval);
-          console.log(`✅ ${settings.count} burbujas creadas exitosamente`);
+          //console.log(`✅ ${settings.count} burbujas creadas exitosamente`);
         }
       }, 150);
     },

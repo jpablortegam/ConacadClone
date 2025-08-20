@@ -17,7 +17,7 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({ profilePictures = [
   const userProfiles = useMemo(() => {
     const combined = [...profilePictures, ...apiUserProfiles];
     if (combined.length > 0) {
-      console.log(`✅ Total perfiles disponibles: ${combined.length}`);
+      // console.log(`✅ Total perfiles disponibles: ${combined.length}`);
     }
     return combined;
   }, [profilePictures, apiUserProfiles]);
