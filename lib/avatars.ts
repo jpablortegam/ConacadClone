@@ -50,7 +50,8 @@ export async function ensureAvatarInStorage(params: {
   const { data: existing } = await supabaseServer.storage
     .from('avatars')
     .list(dir, { search: fileName });
-  if (existing?.find((f) => f.name === fileName)) return publicUrl(objectPath);
+
+  if (existing?.find((f: { name: string }) => f.name === fileName)) return publicUrl(objectPath);
 
   // Descargar origen normalizado
   const normalized = normalizeUpstreamUrl(params.upstreamUrl, sizePx);
@@ -68,7 +69,7 @@ export async function ensureAvatarInStorage(params: {
     contentType: 'image/jpeg',
     cacheControl: '31536000, immutable',
   });
-  if (error) throw error;
 
+  if (error) throw error;
   return publicUrl(objectPath);
 }
