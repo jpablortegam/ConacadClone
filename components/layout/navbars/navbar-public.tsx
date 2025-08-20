@@ -33,7 +33,7 @@ export default function NavbarPublic() {
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -127,7 +127,6 @@ export default function NavbarPublic() {
       >
         <div className="container mx-auto flex h-20 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <Code size={28} />
             <span className="text-lg font-bold">Conacad</span>
           </Link>
 
@@ -228,10 +227,7 @@ export default function NavbarPublic() {
                 </motion.div>
 
                 {/* Separador visual opcional */}
-                <motion.div
-                  variants={itemVariants}
-                  className="border-border/30 mt-6 border-t pt-4"
-                >
+                <motion.div variants={itemVariants} className="border-border/30 mt-6 border-t pt-4">
                   <p className="text-muted-foreground text-center text-xs">
                     ¿Necesitas ayuda? Contáctanos
                   </p>
