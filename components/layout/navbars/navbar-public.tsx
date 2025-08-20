@@ -119,10 +119,11 @@ export default function NavbarPublic() {
   return (
     <>
       <header
-        className={`sticky top-0 z-40 transition-all duration-200 ${scrolled
-          ? 'bg-primary-foreground/90 shadow-lg backdrop-blur-lg'
-          : 'bg-primary-foreground/100'
-          }`}
+        className={`sticky top-0 z-40 transition-all duration-200 ${
+          scrolled
+            ? 'bg-primary-foreground/90 shadow-lg backdrop-blur-lg'
+            : 'bg-primary-foreground/100'
+        }`}
       >
         <div className="container mx-auto flex h-20 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
@@ -226,10 +227,7 @@ export default function NavbarPublic() {
                 </motion.div>
 
                 {/* Separador visual opcional */}
-                <motion.div
-                  variants={itemVariants}
-                  className="border-border/30 mt-6 border-t pt-4"
-                >
+                <motion.div variants={itemVariants} className="border-border/30 mt-6 border-t pt-4">
                   <p className="text-muted-foreground text-center text-xs">
                     ¿Necesitas ayuda? Contáctanos
                   </p>

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { IconoGitHub } from '@/components/icons/IconoGitHub';
 import { IconoGoogle } from '@/components/icons/IconoGoogle';
 import Image from 'next/image';
-import Logo  from '@/assets/images/login.png'
+import Logo from '@/assets/images/login.png';
 import { signIn } from 'next-auth/react';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
@@ -73,7 +73,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
           </form>
           <div className="bg-muted hidden h-64 w-full items-center justify-center md:flex md:h-auto">
             <div className="bg-muted flex h-64 w-full items-center justify-center md:h-auto">
-              <Image src={Logo} placeholder='blur' width={500} height={500} alt="Picture of the author" />
+              <Image
+                src={Logo}
+                placeholder="blur"
+                width={500}
+                height={500}
+                alt="Picture of the author"
+              />
             </div>
           </div>
         </CardContent>

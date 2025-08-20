@@ -1,6 +1,5 @@
 import React from 'react';
 
-
 export function BannerPublic() {
   return (
     <section className="bg--background text-primary w-full px-4 sm:px-6 lg:px-8">

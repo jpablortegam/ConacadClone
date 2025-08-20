@@ -14,8 +14,8 @@ export const BUBBLE_CONFIG: BubbleConfigType = {
   mobileBreakpoint: 640,
 
   // Cantidad de burbujas (reducida)
-  desktopBubbleCount: 15, // ✅ Reducido de 20 a 15
-  mobileBubbleCount: 10, // ✅ Reducido de 15 a 10
+  desktopBubbleCount: 45, // ✅ Reducido de 20 a 15
+  mobileBubbleCount: 25, // ✅ Reducido de 15 a 10
 
   // Tamaños
   desktopMinRadius: 25,
@@ -53,5 +53,5 @@ export const BUBBLE_CONFIG: BubbleConfigType = {
   // Avatar styling
   avatarPadding: 1,
   avatarBorderWidth: 3,
-  profileBubbleRatio: 0.4, // ✅ Reducido de 0.7 a 0.4 (menos avatares = menos requests)
+  profileBubbleRatio: 1, // ✅ Reducido de 0.7 a 0.4 (menos avatares = menos requests)
 } as const;
