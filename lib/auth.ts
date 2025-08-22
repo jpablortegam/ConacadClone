@@ -4,6 +4,8 @@ import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
+import Credentials from 'next-auth/providers/credentials';
+//import { signInSchema } from './zod/signInSchema';
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -17,12 +19,14 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       clientId: process.env.AUTH_GITHUB_ID!,
       clientSecret: process.env.AUTH_GITHUB_SECRET!,
     }),
+    Credentials({}),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60,
-    updateAge: 7 * 24 * 60 * 60,
+    // maxAge: 7 * 24 * 60 * 60,
+    // updateAge: 7 * 24 * 60 * 60,
+    maxAge: 5 * 60,
   },
 
   callbacks: {

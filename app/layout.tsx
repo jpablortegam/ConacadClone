@@ -9,19 +9,17 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Conacad - Tu plataforma de aprendizaje',
+    default: 'Conacad',
     template: '%s | Conacad',
   },
-  description:
-    'Plataforma educativa líder en cursos online. Aprende con expertos, obtén certificaciones y desarrolla nuevas habilidades desde cualquier lugar.',
+  description: 'Plataforma educativa',
   keywords: [
     'educación',
     'aprendizaje',
     'cursos online',
     'plataforma educativa',
-    'certificaciones',
-    'desarrollo profesional',
-    'e-learning',
+    'conacad',
+    'conacad.com',
     'formación',
   ],
   authors: [{ name: 'Conacad Team', url: 'https://conacad.com' }],
@@ -70,8 +68,6 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
   },
   category: 'education',
 };

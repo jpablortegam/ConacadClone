@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,6 +9,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ------------------- Auth -------------------
 
 model Role {
   id          String  @id @default(cuid())
@@ -22,21 +27,46 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  imageLastSync DateTime? @map("image_last_sync") // 🆕 Nuevo campo para tracking de sincronización
-  roleId        String?   @map("roleId")
+  imageLastSync DateTime? @map("image_last_sync")
+  roleId        String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
+  lastActivity  DateTime?
   accounts      Account[]
   sessions      Session[]
   role          Role?     @relation(fields: [roleId], references: [id])
 
+  // Info de contacto docente
+  contactInfo String?
+
+  // Relaciones profesores
+  taughtCourses Course[]   @relation("TeacherCourses")
+  advisories    Advisory[] @relation("TeacherAdvisories")
+  rubrics       Rubric[]
+
+  // Relaciones estudiantes
+  enrollments       Enrollment[]
+  submissions       Submission[]
+  studentAdvisories Advisory[]       @relation("StudentAdvisories")
+  examGrades        ExamGrade[]
+  progressReports   ProgressReport[]
+
+  // Notificaciones
+  sentNotifications     Notification[] @relation("SentNotifications")
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+
+  // Logs
+  activityLogs ActivityLog[]
+
+  @@index([roleId])
+  @@index([lastActivity])
   @@map("users")
 }
 
 model Account {
   id                String   @id @default(cuid())
   userId            String   @map("userId")
-  type              String
+  type              String // ← String para compatibilidad con Auth.js (oauth/oidc/credentials/etc.)
   provider          String
   providerAccountId String
   refresh_token     String?
@@ -73,4 +103,483 @@ model VerificationToken {
 
   @@id([identifier, token])
   @@map("verification_token")
+}
+
+// ------------------- Períodos Académicos -------------------
+
+model AcademicPeriod {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  courses Course[]
+
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("academic_periods")
+}
+
+// ------------------- Cursos y Gestión Académica -------------------
+
+model Course {
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  joinCode           String    @unique
+  isActive           Boolean   @default(true)
+  maxStudents        Int?
+  enrollmentDeadline DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  academicPeriodId String?
+  academicPeriod   AcademicPeriod? @relation(fields: [academicPeriodId], references: [id])
+
+  teacherId String
+  teacher   User   @relation("TeacherCourses", fields: [teacherId], references: [id])
+
+  gradingConfig GradingConfig?
+
+  enrollments     Enrollment[]
+  tasks           Task[]
+  announcements   Announcement[]
+  resources       Resource[]
+  exams           Exam[]
+  syllabus        Syllabus?
+  lessons         Lesson[]
+  advisories      Advisory[]
+  progressReports ProgressReport[]
+  Notification    Notification[]
+
+  @@index([teacherId])
+  @@index([academicPeriodId])
+  @@index([enrollmentDeadline])
+  @@map("courses")
+}
+
+model GradingConfig {
+  id                  String @id @default(cuid())
+  taskWeight          Float  @default(40.0)
+  examWeight          Float  @default(50.0)
+  participationWeight Float  @default(10.0)
+
+  courseId String @unique
+  course   Course @relation(fields: [courseId], references: [id])
+
+  @@map("grading_configs")
+}
+
+model Enrollment {
+  id                 String   @id @default(cuid())
+  studentId          String
+  courseId           String
+  progress           Int      @default(0) @db.SmallInt // 0..100 (CHECK en SQL)
+  currentGrade       Float?
+  taskAverage        Float?
+  examAverage        Float?
+  participationGrade Float?
+  enrolledAt         DateTime @default(now())
+
+  student User   @relation(fields: [studentId], references: [id])
+  course  Course @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+  @@map("enrollments")
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  title       String
+  content     String?
+  lessonOrder Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  // Orden único por curso + mejor índice para listados
+  @@unique([courseId, lessonOrder])
+  @@index([courseId, updatedAt])
+  @@map("lessons")
+}
+
+// ------------------- Tareas y Evaluaciones -------------------
+
+model Task {
+  id                   String     @id @default(cuid())
+  title                String
+  description          String?
+  dueDate              DateTime?
+  maxScore             Float?
+  isVisible            Boolean    @default(false)
+  status               TaskStatus @default(DRAFT)
+  allowLateSubmissions Boolean    @default(false)
+  maxFileSize          Int?       @default(10485760)
+  allowedFileTypes     Json?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @default(now()) @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  rubricId String?
+  rubric   Rubric? @relation(fields: [rubricId], references: [id])
+
+  submissions  Submission[]
+  Notification Notification[]
+
+  // Índices para dashboards y listados
+  @@index([courseId, createdAt])
+  @@index([courseId, status, dueDate])
+  @@index([courseId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  REOPENED
+}
+
+model Submission {
+  id               String           @id @default(cuid())
+  content          String?          @db.Text
+  grade            Float?
+  feedback         String?
+  submittedAt      DateTime         @default(now())
+  gradedAt         DateTime?
+  submissionStatus SubmissionStatus @default(ON_TIME)
+  version          Int              @default(1)
+  isActive         Boolean          @default(true)
+
+  taskId    String
+  task      Task   @relation(fields: [taskId], references: [id])
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+
+  attachments       SubmissionAttachment[]
+  rubricEvaluations RubricEvaluation[]
+
+  @@index([taskId])
+  @@index([studentId])
+  @@index([submittedAt])
+  @@index([isActive])
+  @@map("submissions")
+}
+
+enum SubmissionStatus {
+  ON_TIME
+  LATE
+  AFTER_REOPENED
+}
+
+model SubmissionAttachment {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  uploadedAt   DateTime @default(now())
+
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("submission_attachments")
+}
+
+// ------------------- Sistema de Rúbricas -------------------
+
+model Rubric {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+
+  criteria    RubricCriterion[]
+  tasks       Task[]
+  evaluations RubricEvaluation[]
+
+  @@index([teacherId])
+  @@map("rubrics")
+}
+
+model RubricCriterion {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  maxPoints   Float
+  order       Int
+
+  rubricId String
+  rubric   Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  evaluations RubricCriterionEvaluation[]
+
+  // Orden único por rúbrica
+  @@unique([rubricId, order])
+  @@index([rubricId])
+  @@index([order])
+  @@map("rubric_criteria")
+}
+
+model RubricEvaluation {
+  id         String   @id @default(cuid())
+  totalScore Float
+  createdAt  DateTime @default(now())
+
+  rubricId     String
+  rubric       Rubric     @relation(fields: [rubricId], references: [id])
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+
+  criterionEvaluations RubricCriterionEvaluation[]
+
+  @@unique([rubricId, submissionId])
+  @@index([submissionId])
+  @@map("rubric_evaluations")
+}
+
+model RubricCriterionEvaluation {
+  id       String  @id @default(cuid())
+  score    Float
+  comments String?
+
+  criterionId  String
+  criterion    RubricCriterion  @relation(fields: [criterionId], references: [id])
+  evaluationId String
+  evaluation   RubricEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@unique([criterionId, evaluationId])
+  @@map("rubric_criterion_evaluations")
+}
+
+// ------------------- Exámenes -------------------
+
+model Exam {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  scheduledDate DateTime
+  weight        Float?
+  maxScore      Float?
+  createdAt     DateTime @default(now())
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  examGrades ExamGrade[]
+
+  @@index([courseId])
+  @@index([scheduledDate])
+  @@map("exams")
+}
+
+model ExamGrade {
+  id       String   @id @default(cuid())
+  score    Float
+  feedback String?
+  gradedAt DateTime @default(now())
+
+  examId    String
+  exam      Exam   @relation(fields: [examId], references: [id])
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+
+  @@unique([examId, studentId])
+  @@index([studentId])
+  @@map("exam_grades")
+}
+
+// ------------------- Otros Modelos -------------------
+
+enum ResourceType {
+  PDF
+  VIDEO
+  LINK
+  OTHER
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, createdAt])
+  @@map("announcements")
+}
+
+model Resource {
+  id        String        @id @default(cuid())
+  title     String
+  url       String?
+  type      ResourceType?
+  createdAt DateTime      @default(now())
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, createdAt])
+  @@map("resources")
+}
+
+model Syllabus {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  courseId String @unique
+  course   Course @relation(fields: [courseId], references: [id])
+
+  @@map("syllabi")
+}
+
+// ------------------- Asesorías -------------------
+
+model Advisory {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  scheduledAt DateTime
+  location    String?
+  duration    Int? // minutos
+  status      AdvisoryStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @default(now()) @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  teacherId String
+  teacher   User   @relation("TeacherAdvisories", fields: [teacherId], references: [id])
+
+  studentId    String
+  student      User           @relation("StudentAdvisories", fields: [studentId], references: [id])
+  Notification Notification[]
+
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("advisories")
+}
+
+enum AdvisoryStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ------------------- Notificaciones -------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  senderId   String?
+  sender     User?   @relation("SentNotifications", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User    @relation("ReceivedNotifications", fields: [receiverId], references: [id])
+
+  // Relaciones explícitas
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  advisoryId String?
+  advisory   Advisory? @relation(fields: [advisoryId], references: [id], onDelete: SetNull)
+
+  @@index([receiverId, isRead, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_SOON
+  TASK_GRADED
+  ADVISORY_REQUESTED
+  ADVISORY_CONFIRMED
+  ADVISORY_REMINDER
+  ANNOUNCEMENT_NEW
+  COURSE_UPDATE
+  PROGRESS_REPORT
+  SYSTEM
+}
+
+// ------------------- Reportes -------------------
+
+model ProgressReport {
+  id          String             @id @default(cuid())
+  title       String
+  reportType  ProgressReportType
+  content     Json
+  generatedAt DateTime           @default(now())
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id])
+
+  startDate DateTime
+  endDate   DateTime
+
+  @@index([studentId])
+  @@index([courseId])
+  @@index([generatedAt])
+  @@map("progress_reports")
+}
+
+enum ProgressReportType {
+  WEEKLY
+  MONTHLY
+  PARTIAL
+  FINAL
+}
+
+// ------------------- Logs -------------------
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("activity_logs")
 }
