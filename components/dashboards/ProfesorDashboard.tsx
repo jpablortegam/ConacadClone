@@ -4,6 +4,7 @@ import { signOut } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Mail, Calendar, Clock } from 'lucide-react';
+import { prisma } from '@/lib/prisma'; // Importa prisma aquí
 
 const PageDashboard = async () => {
   const session = await auth();
@@ -28,8 +29,14 @@ const PageDashboard = async () => {
     });
   };
 
-  // Asegúrate de que session.user.role esté disponible gracias a las modificaciones en auth.ts
-  // y next-auth.d.ts.
+  let userRole = null;
+  if (session.user.id) {
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: { select: { name: true } } },
+    });
+    userRole = userWithRole?.role?.name ?? null;
+  }
 
   return (
     <div className="container mx-auto space-y-6 p-6">
@@ -83,7 +90,7 @@ const PageDashboard = async () => {
                 <User className="text-muted-foreground h-4 w-4" />
                 <span className="font-medium">Rol:</span>
                 {/* Accedemos directamente a session.user?.role */}
-                <span>{session.user?.role || 'No asignado'}</span>
+                <span>{userRole || 'No asignado'}</span> {/* Usa userRole aquí */}
               </div>
             </div>
 
