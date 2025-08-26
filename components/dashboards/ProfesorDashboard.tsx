@@ -14,91 +14,244 @@ import {
   Settings,
   GraduationCap,
   ChartBar,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Tipos más robustos
 type TeacherCoursePreview = {
   id: string;
-  name: string;              // <- viene de Course.title
+  name: string;
   description: string | null;
-  studentCount: number;      // <- _count.enrollments
+  studentCount: number;
   isActive: boolean;
   createdAt: Date;
 };
 
-const PageDashboard = async () => {
-  const session = await auth();
+type UserWithRole = {
+  role: {
+    name: string;
+  } | null;
+} | null;
 
-  if (!session || !session.user) {
-    redirect('/sign-in');
+type DashboardStats = {
+  totalClasses: number;
+  totalStudents: number;
+  activeClasses: number;
+  averageStudentsPerClass: number;
+};
+
+// Componente para estadísticas con loading
+const StatsCard = ({
+  title,
+  value,
+  icon: Icon,
+  color,
+  isLoading = false
+}: {
+  title: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  isLoading?: boolean;
+}) => (
+  <Card>
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold">
+            {isLoading ? (
+              <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+            ) : (
+              value
+            )}
+          </p>
+        </div>
+        <Icon className={`h-8 w-8 ${color}`} />
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Componente para clases con mejor manejo de estados
+const ClassCard = ({ courseClass }: { courseClass: TeacherCoursePreview }) => (
+  <Link key={courseClass.id} href={`/dashboard/classes/${courseClass.id}`}>
+    <Card className="h-full hover:shadow-md transition-all duration-200 cursor-pointer border-2 hover:border-primary/20 group">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+              <BookOpen className="h-4 w-4 text-primary" />
+            </div>
+            <Badge
+              variant={courseClass.isActive ? 'default' : 'secondary'}
+              className="text-xs"
+            >
+              {courseClass.isActive ? 'Activa' : 'Inactiva'}
+            </Badge>
+          </div>
+        </div>
+
+        <h4 className="font-semibold text-base mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+          {courseClass.name}
+        </h4>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+          {courseClass.description || 'Sin descripción disponible'}
+        </p>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            {courseClass.studentCount} estudiante{courseClass.studentCount !== 1 ? 's' : ''}
+          </span>
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {new Date(courseClass.createdAt).toLocaleDateString('es-ES')}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  </Link>
+);
+
+// Función para calcular estadísticas
+const calculateStats = (classes: TeacherCoursePreview[]): DashboardStats => {
+  const totalClasses = classes.length;
+  const totalStudents = classes.reduce((sum, cls) => sum + cls.studentCount, 0);
+  const activeClasses = classes.filter(cls => cls.isActive).length;
+  const averageStudentsPerClass = totalClasses > 0 ? Math.round(totalStudents / totalClasses) : 0;
+
+  return {
+    totalClasses,
+    totalStudents,
+    activeClasses,
+    averageStudentsPerClass
+  };
+};
+
+// Función para obtener datos del usuario de forma más robusta
+const getUserData = async (userId: string): Promise<{
+  userRole: string | null;
+  teacherClasses: TeacherCoursePreview[];
+  error: string | null;
+}> => {
+  try {
+    // Obtener rol del usuario
+    const userWithRole: UserWithRole = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: {
+          select: { name: true }
+        }
+      },
+    });
+
+    const userRole = userWithRole?.role?.name ?? null;
+
+    // Obtener cursos con datos más completos
+    const courses = await prisma.course.findMany({
+      where: {
+        teacherId: userId,
+        // Opcional: filtrar solo cursos no eliminados si tienes soft delete
+        // deletedAt: null 
+      },
+      include: {
+        _count: {
+          select: {
+            enrollments: true // Contamos todas las inscripciones por ahora
+          }
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      // Limitar resultados para optimizar
+      take: 100
+    });
+
+    const teacherClasses: TeacherCoursePreview[] = courses.map((course) => ({
+      id: course.id,
+      name: course.title,
+      description: course.description,
+      studentCount: course._count.enrollments,
+      isActive: course.isActive,
+      createdAt: course.createdAt,
+    }));
+
+    return {
+      userRole,
+      teacherClasses,
+      error: null
+    };
+
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    return {
+      userRole: null,
+      teacherClasses: [],
+      error: error instanceof Error ? error.message : 'Error desconocido al cargar datos'
+    };
   }
+};
 
-  const currentTime = new Date().getTime();
-  if (session.expires && new Date(session.expires).getTime() < currentTime) {
-    redirect('/sign-in');
-  }
+// Función para formatear fecha más robusta
+const formatDate = (date: string | Date | null | undefined): string => {
+  if (!date) return 'No especificado';
 
-  const formatDate = (date: string | Date) =>
-    new Date(date).toLocaleDateString('es-ES', {
+  try {
+    return new Date(date).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
+  } catch {
+    return 'Fecha inválida';
+  }
+};
 
-  // --- Datos del usuario y cursos (ajustado a tu schema) ---
-  let userRole: string | null = null;
-  let teacherClasses: TeacherCoursePreview[] = [];
-  let totalStudents = 0;
+// Componente principal
+const PageDashboard = async () => {
+  // Validación de sesión mejorada
+  const session = await auth();
 
-  if (session.user.id) {
-    const userWithRole = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: { select: { name: true } } },
-    });
-    userRole = userWithRole?.role?.name ?? null;
+  if (!session?.user?.id) {
+    redirect('/sign-in');
+  }
 
-    try {
-      const courses = await prisma.course.findMany({
-        where: { teacherId: session.user.id },
-        include: {
-          _count: { select: { enrollments: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+  // Validación de expiración de sesión más robusta
+  if (session.expires) {
+    const currentTime = new Date().getTime();
+    const expirationTime = new Date(session.expires).getTime();
 
-      teacherClasses = courses.map((c) => ({
-        id: c.id,
-        name: c.title,                    // <- title → name para reusar tu UI
-        description: c.description ?? null,
-        studentCount: c._count.enrollments,
-        isActive: c.isActive,
-        createdAt: c.createdAt,
-      }));
-
-      totalStudents = teacherClasses.reduce((sum, cls) => sum + cls.studentCount, 0);
-    } catch (error) {
-      console.log('Error fetching courses:', error);
-      // En caso de error, mantenemos arrays vacíos
+    if (expirationTime < currentTime) {
+      redirect('/sign-in');
     }
   }
 
+  // Obtener datos del usuario
+  const { userRole, teacherClasses, error } = await getUserData(session.user.id);
+
+  // Calcular estadísticas
+  const stats = calculateStats(teacherClasses);
+
   return (
-    <div className="container mx-auto space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto space-y-6 p-6 max-w-7xl">
+      {/* Header mejorado */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard Profesores</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Profesores</h1>
           <p className="text-muted-foreground mt-1">
             Bienvenido, {session.user?.name || 'Profesor'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/classes/new">
-            <Button className="flex items-center gap-2">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Link href="/dashboard/classes/new" className="flex-1 sm:flex-initial">
+            <Button className="flex items-center gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Nueva Clase
             </Button>
@@ -106,11 +259,17 @@ const PageDashboard = async () => {
           <form
             action={async () => {
               'use server';
-              const currentSession = await auth();
-              if (!currentSession) {
+              try {
+                const currentSession = await auth();
+                if (!currentSession) {
+                  redirect('/sign-in');
+                }
+                await signOut();
+              } catch (error) {
+                console.error('Error signing out:', error);
+                // En caso de error, redirigir de todos modos
                 redirect('/sign-in');
               }
-              await signOut();
             }}
           >
             <Button type="submit" variant="outline">
@@ -120,65 +279,54 @@ const PageDashboard = async () => {
         </div>
       </div>
 
-      {/* Estadísticas Rápidas */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Clases</p>
-                <p className="text-2xl font-bold">{teacherClasses.length}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Mostrar error si existe */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Error al cargar datos: {error}
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Estudiantes</p>
-                <p className="text-2xl font-bold">{totalStudents}</p>
-              </div>
-              <Users className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Clases Activas</p>
-                <p className="text-2xl font-bold">
-                  {teacherClasses.filter((cls) => cls.isActive).length}
-                </p>
-              </div>
-              <GraduationCap className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Promedio/Clase</p>
-                <p className="text-2xl font-bold">
-                  {teacherClasses.length > 0
-                    ? Math.round(totalStudents / teacherClasses.length)
-                    : 0}
-                </p>
-              </div>
-              <ChartBar className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Estadísticas con Suspense */}
+      <Suspense fallback={
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+      }>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            title="Total Clases"
+            value={stats.totalClasses}
+            icon={BookOpen}
+            color="text-blue-600"
+          />
+          <StatsCard
+            title="Total Estudiantes"
+            value={stats.totalStudents}
+            icon={Users}
+            color="text-green-600"
+          />
+          <StatsCard
+            title="Clases Activas"
+            value={stats.activeClasses}
+            icon={GraduationCap}
+            color="text-purple-600"
+          />
+          <StatsCard
+            title="Promedio/Clase"
+            value={stats.averageStudentsPerClass}
+            icon={ChartBar}
+            color="text-orange-600"
+          />
+        </div>
+      </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Información del Usuario */}
+        {/* Información del Usuario mejorada */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -189,52 +337,58 @@ const PageDashboard = async () => {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <User className="text-muted-foreground h-4 w-4" />
+                <User className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Nombre:</span>
-                <span className="text-sm">{session.user?.name || 'No especificado'}</span>
+                <span className="text-sm truncate">{session.user?.name || 'No especificado'}</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <Mail className="text-muted-foreground h-4 w-4" />
+                <Mail className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Email:</span>
-                <span className="text-sm">{session.user?.email}</span>
+                <span className="text-sm truncate">{session.user?.email}</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <Settings className="text-muted-foreground h-4 w-4" />
+                <Settings className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Rol:</span>
-                <Badge variant="secondary">{userRole || 'No asignado'}</Badge>
+                <Badge variant={userRole ? "default" : "secondary"}>
+                  {userRole || 'No asignado'}
+                </Badge>
               </div>
 
               <div className="flex items-center gap-2">
-                <Calendar className="text-muted-foreground h-4 w-4" />
+                <Calendar className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Sesión expira:</span>
                 <span className="text-sm">
-                  {session.expires ? formatDate(session.expires) : 'No especificado'}
+                  {formatDate(session.expires)}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
-                <Clock className="text-muted-foreground h-4 w-4" />
+                <Clock className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">ID:</span>
-                <code className="bg-muted rounded px-2 py-1 text-xs">{session.user?.id}</code>
+                <code className="bg-muted rounded px-2 py-1 text-xs truncate max-w-32">
+                  {session.user?.id}
+                </code>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Lista de Clases / Courses */}
+        {/* Lista de Clases mejorada */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Mis Clases
+              Mis Clases ({teacherClasses.length})
             </CardTitle>
-            <Link href="/dashboard/classes">
-              <Button variant="outline" size="sm">
-                Ver Todas
-              </Button>
-            </Link>
+            {teacherClasses.length > 0 && (
+              <Link href="/dashboard/classes">
+                <Button variant="outline" size="sm">
+                  Ver Todas
+                </Button>
+              </Link>
+            )}
           </CardHeader>
           <CardContent>
             {teacherClasses.length === 0 ? (
@@ -253,42 +407,8 @@ const PageDashboard = async () => {
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
-                {teacherClasses.slice(0, 4).map((cls) => (
-                  <Link key={cls.id} href={`/dashboard/classes/${cls.id}`}>
-                    <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-2 hover:border-primary/20">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                              <BookOpen className="h-4 w-4 text-primary" />
-                            </div>
-                            <Badge
-                              variant={cls.isActive ? 'default' : 'secondary'}
-                              className="text-xs"
-                            >
-                              {cls.isActive ? 'Activa' : 'Inactiva'}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <h4 className="font-semibold text-base mb-2 line-clamp-1">{cls.name}</h4>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                          {cls.description || 'Sin descripción disponible'}
-                        </p>
-
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {cls.studentCount} estudiantes
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(cls.createdAt).toLocaleDateString('es-ES')}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                {teacherClasses.slice(0, 4).map((courseClass) => (
+                  <ClassCard key={courseClass.id} courseClass={courseClass} />
                 ))}
 
                 {teacherClasses.length > 4 && (
@@ -298,7 +418,7 @@ const PageDashboard = async () => {
                         <div className="text-center">
                           <Plus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                           <p className="text-sm font-medium text-muted-foreground">
-                            Ver {teacherClasses.length - 4} clases más
+                            Ver {teacherClasses.length - 4} clase{teacherClasses.length - 4 !== 1 ? 's' : ''} más
                           </p>
                         </div>
                       </CardContent>
@@ -311,37 +431,37 @@ const PageDashboard = async () => {
         </Card>
       </div>
 
-      {/* Acciones Rápidas */}
+      {/* Acciones Rápidas mejoradas */}
       <Card>
         <CardHeader>
           <CardTitle>Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Link href="/dashboard/classes/new">
-              <Button variant="outline" className="w-full h-20 flex-col">
-                <Plus className="h-6 w-6 mb-2" />
+              <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:bg-primary/5 transition-colors">
+                <Plus className="h-6 w-6" />
                 <span>Nueva Clase</span>
               </Button>
             </Link>
 
             <Link href="/dashboard/students">
-              <Button variant="outline" className="w-full h-20 flex-col">
-                <Users className="h-6 w-6 mb-2" />
+              <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:bg-primary/5 transition-colors">
+                <Users className="h-6 w-6" />
                 <span>Gestionar Estudiantes</span>
               </Button>
             </Link>
 
             <Link href="/dashboard/assignments">
-              <Button variant="outline" className="w-full h-20 flex-col">
-                <FileText className="h-6 w-6 mb-2" />
+              <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:bg-primary/5 transition-colors">
+                <FileText className="h-6 w-6" />
                 <span>Tareas</span>
               </Button>
             </Link>
 
             <Link href="/dashboard/reports">
-              <Button variant="outline" className="w-full h-20 flex-col">
-                <ChartBar className="h-6 w-6 mb-2" />
+              <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:bg-primary/5 transition-colors">
+                <ChartBar className="h-6 w-6" />
                 <span>Reportes</span>
               </Button>
             </Link>

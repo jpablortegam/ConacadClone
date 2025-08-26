@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea'; // si quieres comentario al salir (opcional)
+//import { Textarea } from '@/components/ui/textarea'; // si quieres comentario al salir (opcional)
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Users, Calendar, LogIn, LogOut, ClipboardList, FileText } from 'lucide-react';
 import { TaskStatus } from '@prisma/client';

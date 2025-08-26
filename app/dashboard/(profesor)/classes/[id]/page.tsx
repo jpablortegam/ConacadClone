@@ -6,9 +6,10 @@ import { Users, FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default async function ClassDetail({ params }: { params: { id: string } }) {
+export default async function ClassDetail({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const course = await prisma.course.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: {
             _count: { select: { enrollments: true, tasks: true, exams: true } },
             gradingConfig: true,
@@ -31,7 +32,7 @@ export default async function ClassDetail({ params }: { params: { id: string } }
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Link href={`/dashboard/classes/${course.id}`}>
+                    <Link href={`/dashboard/classes/${id}`}>
                         <Button variant="outline">Actualizar</Button>
                     </Link>
                 </div>

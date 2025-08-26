@@ -1,15 +1,16 @@
-// lib/auth.ts (o donde tengas NextAuth)
+// lib/auth.ts
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from '@/lib/prisma';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
-import Credentials from 'next-auth/providers/credentials';
-//import { signInSchema } from './zod/signInSchema';
+import { prisma } from '@/lib/prisma';
+import { randomBytes } from 'crypto';
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   trustHost: true,
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: 'jwt', maxAge: 5 * 60 },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
@@ -19,30 +20,40 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       clientId: process.env.AUTH_GITHUB_ID!,
       clientSecret: process.env.AUTH_GITHUB_SECRET!,
     }),
-    Credentials({}),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: 'jwt',
-    // maxAge: 7 * 24 * 60 * 60,
-    // updateAge: 7 * 24 * 60 * 60,
-    maxAge: 5 * 60,
-  },
-
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (user) token.id = (user as any).id;
       return token;
     },
-    async session({ session, token, user }) {
-      // En JWT, usa token; si algún día vuelves a DB, usa user?.id
-      if (session.user && (token?.id || user?.id)) {
-        // (si tu tipo de Session no incluye id)
-        session.user.id = (token?.id ?? user?.id) as string;
-      }
+
+    async session({ session, token }) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (session.user && token?.id) (session.user as any).id = token.id as string;
       return session;
     },
   },
+  events: {
+    async linkAccount({ user, account }) {
+      // import dinámico (solo en Node, solo cuando se dispara)
+      const { sendLinkNoticeEmail } = await import('@/lib/mail');
+      const token = randomBytes(32).toString('hex');
+      const identifier = `unlink:${account.provider}:${account.providerAccountId}:${user.id}`;
 
+      await prisma.verificationToken.create({
+        data: { identifier, token, expires: new Date(Date.now() + 30 * 60 * 1000) },
+      });
+
+      if (user.email) {
+        await sendLinkNoticeEmail({
+          to: user.email,
+          userName: user.name ?? user.email,
+          provider: account.provider,
+          unlinkUrl: `${process.env.NEXTAUTH_URL}/api/account/unlink?token=${token}`,
+        });
+      }
+    },
+  },
   pages: { signIn: '/sign-in' },
 });
