@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from 'next';
 import './globals.css';
 import { Geist } from 'next/font/google';
@@ -54,6 +55,15 @@ export const metadata: Metadata = {
     ],
     locale: 'es_ES',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@conacad',
+    creator: '@conacad',
+    title: 'Conacad - Tu plataforma de aprendizaje',
+    description:
+      'Plataforma educativa líder en cursos online. Aprende con expertos y desarrolla nuevas habilidades.',
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,

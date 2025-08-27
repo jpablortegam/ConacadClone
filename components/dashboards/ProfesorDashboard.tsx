@@ -259,17 +259,7 @@ const PageDashboard = async () => {
           <form
             action={async () => {
               'use server';
-              try {
-                const currentSession = await auth();
-                if (!currentSession) {
-                  redirect('/sign-in');
-                }
-                await signOut();
-              } catch (error) {
-                console.error('Error signing out:', error);
-                // En caso de error, redirigir de todos modos
-                redirect('/sign-in');
-              }
+              await signOut({ redirectTo: '/sign-in' });
             }}
           >
             <Button type="submit" variant="outline">

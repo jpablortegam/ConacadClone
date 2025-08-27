@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+//import { unstable_ViewTransition as ViewTransition } from 'react'
 
 export default async function ClassDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
