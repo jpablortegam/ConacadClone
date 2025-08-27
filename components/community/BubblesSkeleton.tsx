@@ -1,4 +1,3 @@
-// components/community/BubblesSkeleton.tsx
 import React from 'react';
 
 /**

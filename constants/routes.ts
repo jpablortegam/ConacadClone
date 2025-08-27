@@ -1,7 +1,34 @@
 // lib/routes.ts
-export const publicRoutes = ['/', '/sign-in', '/sign-up']; // agrega las públicas de tu app
-export const authRoutes = ['/sign-in', '/sign-up']; // páginas de auth
-export const defaultRedirect = '/dashboard'; // adonde mandas tras login
+export const publicRoutes = [
+  '/',
+  '/sign-in',
+  '/sign-up',
+  // ✅ Rutas SEO y archivos públicos
+  '/robots.txt',
+  '/sitemap.xml',
+  '/favicon.ico',
+  '/manifest.json',
+  // ✅ Otras rutas públicas
+  '/about',
+  '/contact',
+  '/terms',
+  '/privacy',
+];
 
-// Si alguna vez decides incluir APIs en el middleware, puedes usar esto:
-// export const apiAuthPrefix = '/api/auth';
+export const authRoutes = ['/sign-in', '/sign-up'];
+export const defaultRedirect = '/dashboard';
+
+// ✅ APIs que SIEMPRE son públicas (no requieren auth)
+export const publicApiRoutes = [
+  '/api/auth/', // NextAuth.js (siempre público)
+  '/api/avatars', // Avatares
+];
+
+// ✅ APIs que requieren autenticación (opcional, para documentación)
+export const privateApiRoutes = [
+  '/api/user/', // Datos del usuario
+  '/api/dashboard/', // Datos del dashboard
+  '/api/courses/', // Cursos del usuario
+  '/api/payments/', // Información de pagos
+  '/api/admin/', // APIs de administración
+];

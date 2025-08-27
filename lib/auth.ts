@@ -4,7 +4,9 @@ import { PrismaAdapter } from '@auth/prisma-adapter';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { prisma } from '@/lib/prisma';
-import { randomBytes } from 'crypto';
+
+// ✅ Especificar que auth debe usar Node.js runtime
+export const runtime = 'nodejs';
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -36,8 +38,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   },
   events: {
     async linkAccount({ user, account }) {
-      // import dinámico (solo en Node, solo cuando se dispara)
+      // ✅ Solo importar cuando realmente se ejecute (dynamic import)
+      const { randomBytes } = await import('crypto');
       const { sendLinkNoticeEmail } = await import('@/lib/mail');
+
       const token = randomBytes(32).toString('hex');
       const identifier = `unlink:${account.provider}:${account.providerAccountId}:${user.id}`;
 

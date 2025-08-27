@@ -1,4 +1,5 @@
-// app/api/avatars/route.ts
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       .map((u) => ({
         id: u.id,
         name: u.name || 'Usuario',
-        image: `/api/avatars/${u.id}/${size}`, // 👈 usa la ruta plural de tu estructura
+        image: `/api/avatars/${u.id}/${size}`, // ruta de tu estructura
       }));
 
     const payload: ApiResponse = { avatars, total: avatars.length, timestamp: Date.now() };
