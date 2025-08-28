@@ -4,13 +4,14 @@ import { PrismaAdapter } from '@auth/prisma-adapter';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { prisma } from '@/lib/prisma';
-
-// ✅ Especificar que auth debe usar Node.js runtime
-export const runtime = 'nodejs';
+import type { JWT } from 'next-auth/jwt';
+import type { Session, User } from 'next-auth';
+import type { User as NextAuthUser } from 'next-auth';
+import type { Account } from '@auth/core/types';
+import type { AdapterUser } from '@auth/core/adapters';
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt', maxAge: 5 * 60 },
   providers: [
@@ -24,21 +25,29 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (user) token.id = (user as any).id;
+    async jwt({ token, user }: { token: JWT; user?: User }): Promise<JWT> {
+      if (user) {
+        token.id = user.id;
+      }
       return token;
     },
 
-    async session({ session, token }) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (session.user && token?.id) (session.user as any).id = token.id as string;
+    async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
+      if (session.user && token?.id) {
+        session.user.id = token.id as string;
+      }
       return session;
     },
   },
   events: {
-    async linkAccount({ user, account }) {
-      // ✅ Solo importar cuando realmente se ejecute (dynamic import)
+    async linkAccount({
+      user,
+      account,
+    }: {
+      user: NextAuthUser | AdapterUser;
+      account: Account;
+      profile?: unknown;
+    }) {
       const { randomBytes } = await import('crypto');
       const { sendLinkNoticeEmail } = await import('@/lib/mail');
 
@@ -46,7 +55,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       const identifier = `unlink:${account.provider}:${account.providerAccountId}:${user.id}`;
 
       await prisma.verificationToken.create({
-        data: { identifier, token, expires: new Date(Date.now() + 30 * 60 * 1000) },
+        data: { identifier, token, expires: new Date(Date.now() + 5 * 60 * 1000) },
       });
 
       if (user.email) {
