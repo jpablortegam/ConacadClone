@@ -39,7 +39,7 @@ const CommunitySection: React.FC<CommunitySeccionProps> = ({ profilePictures = [
       id="comunidad"
       className="bg-card/90 border-border/20 container mx-auto mb-10 rounded-lg border p-8 px-4 text-center shadow-lg backdrop-blur-sm transition-all duration-300 dark:shadow-2xl dark:shadow-black/25"
     >
-      <h1 className="text-primary mb-6 text-2xl font-extrabold">Nuestra Comunidad</h1>
+      <h1 className="text-primary mb-6 text-3xl font-extrabold">Nuestra Comunidad</h1>
 
       <div className="bg-muted/30 dark:bg-muted/10 border-border/50 dark:border-border/30 relative h-96 w-full overflow-hidden rounded-lg border-2 transition-colors duration-300">
         {/* Overlay de carga mejorado */}

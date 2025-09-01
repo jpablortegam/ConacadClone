@@ -1,5 +1,6 @@
 // lib/avatars.ts
 import sharp from 'sharp';
+import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabase/supabaseServer';
 
 const SIZE_MAP = { small: 64, medium: 128, large: 256 } as const;
@@ -35,41 +36,79 @@ function publicUrl(objectPath: string) {
   return data.publicUrl;
 }
 
-/** Asegura la variante en Storage; si falta la descarga, redimensiona y sube. */
+async function getStoredHash(dir: string) {
+  const hashPath = `${dir}/hash.txt`;
+  const { data, error } = await supabaseServer.storage.from('avatars').download(hashPath);
+  if (error || !data) return null;
+
+  // `data` es un Blob en runtime server; lo convertimos a texto sin usar `any`.
+  const text = await new Response(data).text();
+  const trimmed = text.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+async function setStoredHash(dir: string, hash: string) {
+  const hashPath = `${dir}/hash.txt`;
+  // Usamos Uint8Array para evitar Blob/any; Supabase acepta ArrayBuffer/Uint8Array.
+  const body = new TextEncoder().encode(hash);
+  await supabaseServer.storage.from('avatars').upload(hashPath, body, {
+    upsert: true,
+    cacheControl: 'no-store',
+    contentType: 'text/plain; charset=utf-8',
+  });
+}
+
+function contentHash(buf: Buffer) {
+  return crypto.createHash('sha1').update(buf).digest('hex');
+}
+
+/**
+ * Asegura la variante en Storage; re-sube sólo si cambió el contenido.
+ * Devuelve URL pública con ?v=<hash>
+ */
 export async function ensureAvatarInStorage(params: {
   userId: string;
   upstreamUrl: string;
   size: AvatarSize;
 }) {
   const sizePx = SIZE_MAP[params.size];
-  const fileName = `${params.userId}_${sizePx}.jpg`;
   const dir = `users/${params.userId}`;
+
+  // 1 key por tamaño, extensión y tipo correctos
+  const fileName = `${params.userId}_${sizePx}.webp`;
   const objectPath = `${dir}/${fileName}`;
-
-  // Existe ya?
-  const { data: existing } = await supabaseServer.storage
-    .from('avatars')
-    .list(dir, { search: fileName });
-
-  if (existing?.find((f: { name: string }) => f.name === fileName)) return publicUrl(objectPath);
 
   // Descargar origen normalizado
   const normalized = normalizeUpstreamUrl(params.upstreamUrl, sizePx);
   const original = await fetchWithBackoffToBuffer(normalized);
 
-  // Redimensionar
+  // Hash del original (sirve como versión)
+  const hash = contentHash(original);
+
+  // Si el hash coincide, no re-subimos — devolvemos URL con ?v=
+  const prevHash = await getStoredHash(dir);
+  const urlBase = publicUrl(objectPath);
+  if (prevHash === hash) {
+    return `${urlBase}?v=${hash}`;
+  }
+
+  // Redimensionar + convertir a WebP real
   const out = await sharp(original)
     .resize(sizePx, sizePx, { fit: 'cover' })
-    .jpeg({ quality: 82 })
+    .webp({ quality: 82 })
     .toBuffer();
 
-  // Subir con cache fuerte
+  // Subir sobrescribiendo la misma key (sin crear versiones en disco)
   const { error } = await supabaseServer.storage.from('avatars').upload(objectPath, out, {
     upsert: true,
-    contentType: 'image/jpeg',
+    contentType: 'image/webp',
     cacheControl: '31536000, immutable',
   });
-
   if (error) throw error;
-  return publicUrl(objectPath);
+
+  // Guardar nuevo hash
+  await setStoredHash(dir, hash);
+
+  // Devolver URL con cache-busting
+  return `${urlBase}?v=${hash}`;
 }
