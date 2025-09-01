@@ -1,12 +1,9 @@
 // next.config.ts
 import type { NextConfig } from 'next';
 
-const isProd = process.env.NODE_ENV === 'production';
-
 function makeCSP() {
   return [
     "default-src 'self'",
-    // Permitir unsafe-eval para NextAuth.js en ambos entornos
     "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
@@ -15,9 +12,7 @@ function makeCSP() {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-  ]
-    .filter(Boolean)
-    .join('; ');
+  ].join('; ');
 }
 
 const nextConfig: NextConfig = {
@@ -25,9 +20,16 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      {
+        protocol: 'https',
+        hostname: 'covrlthxywrlxpogrlef.supabase.co',
+        pathname: '/storage/v1/object/public/avatars/**',
+      },
     ],
     formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 86400,
+    minimumCacheTTL: 3600,             // ↑ cache del optimizador (seguro con versión)
+    deviceSizes: [360, 414, 640, 768, 1024],
+    imageSizes: [32, 48, 64, 96, 160, 256],
   },
   async headers() {
     const csp = makeCSP();
