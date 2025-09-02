@@ -4,19 +4,16 @@
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from '@/components/theme-provider';
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+// Provider solo para el tema (global)
+export function ThemeProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      {
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-      }
-    </SessionProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      {children}
+    </ThemeProvider>
   );
+}
+
+// Provider para sesión (solo rutas privadas)
+export function AuthProviderWrapper({ children }: { children: React.ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>;
 }
