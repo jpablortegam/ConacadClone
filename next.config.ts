@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
       },
     ],
     formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 3600,             // ↑ cache del optimizador (seguro con versión)
+    minimumCacheTTL: 3600, // ↑ cache del optimizador (seguro con versión)
     deviceSizes: [360, 414, 640, 768, 1024],
     imageSizes: [32, 48, 64, 96, 160, 256],
   },
