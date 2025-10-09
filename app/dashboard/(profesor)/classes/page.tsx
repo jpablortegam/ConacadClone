@@ -1,10 +1,6 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { BookOpen, Users, Calendar, Plus } from 'lucide-react';
+import { default as PageClient } from './page-client';
 
 export default async function ClassesPage() {
   const session = await auth();
@@ -16,62 +12,5 @@ export default async function ClassesPage() {
     orderBy: { createdAt: 'desc' },
   });
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mis Clases</h1>
-        <Link href="/dashboard/classes/new">
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nueva Clase
-          </Button>
-        </Link>
-      </div>
-
-      {courses.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <BookOpen className="text-muted-foreground mx-auto mb-3 h-10 w-10" />
-            <p className="text-muted-foreground mb-4">Aún no tienes clases creadas.</p>
-            <Link href="/dashboard/classes/new">
-              <Button>Crear primera clase</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {courses.map((c) => (
-            <Link key={c.id} href={`/dashboard/classes/${c.id}`}>
-              <Card className="hover:border-primary/20 cursor-pointer border-2 transition-shadow hover:shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="bg-primary/10 rounded-lg p-2">
-                        <BookOpen className="text-primary h-4 w-4" />
-                      </div>
-                      <Badge variant={c.isActive ? 'default' : 'secondary'} className="text-xs">
-                        {c.isActive ? 'Activa' : 'Inactiva'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <h3 className="line-clamp-1 font-semibold">{c.title}</h3>
-                  <p className="text-muted-foreground line-clamp-2 text-sm">
-                    {c.description || 'Sin descripción'}
-                  </p>
-                  <div className="text-muted-foreground mt-3 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" /> {c._count.enrollments} estudiantes
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(c.createdAt).toLocaleDateString('es-ES')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <PageClient courses={courses} />;
 }

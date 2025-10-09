@@ -1,3 +1,4 @@
+import { unstable_ViewTransition as ViewTransition } from 'react';
 import { auth, signOut } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -76,27 +77,36 @@ const StatsCard = ({
 
 // Componente para clases con mejor manejo de estados
 const ClassCard = ({ courseClass }: { courseClass: TeacherCoursePreview }) => (
-  <Link key={courseClass.id} href={`/dashboard/classes/${courseClass.id}`}>
-    <Card className="hover:border-primary/20 group h-full cursor-pointer border-2 transition-all duration-200 hover:shadow-md">
-      <CardContent className="p-4">
-        <div className="mb-3 flex items-start justify-between">
-          <div className="flex items-center gap-2">
+  <Card key={courseClass.id} className="hover:border-primary/20 group h-full cursor-pointer border-2 transition-all duration-200 hover:shadow-md">
+    <CardContent className="p-4">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <ViewTransition name={`class-icon-${courseClass.id}`}>
             <div className="bg-primary/10 group-hover:bg-primary/20 rounded-lg p-2 transition-colors">
               <BookOpen className="text-primary h-4 w-4" />
             </div>
-            <Badge variant={courseClass.isActive ? 'default' : 'secondary'} className="text-xs">
-              {courseClass.isActive ? 'Activa' : 'Inactiva'}
-            </Badge>
-          </div>
+          </ViewTransition>
+          <Badge variant={courseClass.isActive ? 'default' : 'secondary'} className="text-xs">
+            {courseClass.isActive ? 'Activa' : 'Inactiva'}
+          </Badge>
         </div>
+      </div>
 
-        <h4 className="group-hover:text-primary mb-2 line-clamp-1 text-base font-semibold transition-colors">
-          {courseClass.name}
-        </h4>
+      <ViewTransition name={`class-title-${courseClass.id}`}>
+        <Link href={`/dashboard/classes/${courseClass.id}`} className="inline-block">
+          <h4 className="group-hover:text-primary mb-2 line-clamp-1 text-base font-semibold transition-colors">
+            {courseClass.name}
+          </h4>
+        </Link>
+      </ViewTransition>
+      
+      <ViewTransition name={`class-description-${courseClass.id}`}>
         <p className="text-muted-foreground mb-3 line-clamp-2 text-sm">
           {courseClass.description || 'Sin descripción disponible'}
         </p>
+      </ViewTransition>
 
+      <ViewTransition name={`class-stats-${courseClass.id}`}>
         <div className="text-muted-foreground flex items-center justify-between text-xs">
           <span className="flex items-center gap-1">
             <Users className="h-3 w-3" />
@@ -107,9 +117,17 @@ const ClassCard = ({ courseClass }: { courseClass: TeacherCoursePreview }) => (
             {new Date(courseClass.createdAt).toLocaleDateString('es-ES')}
           </span>
         </div>
-      </CardContent>
-    </Card>
-  </Link>
+      </ViewTransition>
+
+      <div className="mt-4">
+        <Link href={`/dashboard/classes/${courseClass.id}`} className="w-full">
+          <Button className="w-full bg-gray-100 text-gray-900 hover:bg-gray-200">
+            Ver Detalles
+          </Button>
+        </Link>
+      </div>
+    </CardContent>
+  </Card>
 );
 
 // Función para calcular estadísticas

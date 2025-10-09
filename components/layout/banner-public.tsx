@@ -1,8 +1,10 @@
+// components/layout/banner-public.tsx
 import React from 'react';
 
 export function BannerPublic() {
   return (
-    <section className="bg--background text-primary w-full px-4 sm:px-6 lg:px-8">
+    // CAMBIO CLAVE: Usar bg-background para coincidir con el fondo de la página.
+    <section className="bg-background text-primary w-full px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl py-12 text-center sm:py-16 md:py-20">
         <h1 className="mb-4 text-3xl leading-tight font-bold sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl">
           Bienvenido a Conacad

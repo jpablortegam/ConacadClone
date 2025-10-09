@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureAvatarInStorage, type AvatarSize } from '@/lib/avatars';
 
+const SIZE_MAP = { small: 64, medium: 128, large: 256 } as const;
+
 // ⚠️ sharp → Node runtime
 export const runtime = 'nodejs';
 
@@ -19,11 +21,21 @@ export async function GET(
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { image: true },
+    select: { image: true, name: true },
   });
 
   if (!user?.image) {
-    return new NextResponse('Not found', { status: 404 });
+    // Generar una imagen de avatar por defecto usando redirect
+    const defaultAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&size=${SIZE_MAP[validSize]}&background=random&color=fff&format=png`;
+    
+    console.log('🔄 User has no image, redirecting to default avatar:', defaultAvatarUrl);
+    
+    return NextResponse.redirect(defaultAvatarUrl, {
+      status: 302,
+      headers: {
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
+    });
   }
 
   try {
@@ -33,8 +45,9 @@ export async function GET(
       size: validSize,
     });
 
-    // Redirigimos al objeto público (que ya es immutable).
-    // Aquí usamos cache corto para la redirección (no immutable).
+    console.log('🔍 Generated URL:', urlWithVersion);
+
+    // Simplemente redirigir - Next.js Image debería poder manejar esto
     return NextResponse.redirect(urlWithVersion, {
       status: 302,
       headers: {
@@ -43,6 +56,17 @@ export async function GET(
     });
   } catch (e) {
     console.error('❌ /api/avatars route error', e);
-    return new NextResponse('Bad Gateway', { status: 502 });
+    
+    // Fallback: generar avatar por defecto
+    const defaultAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&size=${SIZE_MAP[validSize]}&background=random&color=fff&format=png`;
+    
+    console.log('🔄 Falling back to default avatar:', defaultAvatarUrl);
+    
+    return NextResponse.redirect(defaultAvatarUrl, {
+      status: 302,
+      headers: {
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
+    });
   }
 }

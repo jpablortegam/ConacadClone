@@ -2,6 +2,9 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ensureAvatarInStorage, type AvatarSize } from '@/lib/avatars';
+
+const SIZE_MAP = { small: 64, medium: 128, large: 256 } as const;
 
 interface AvatarResponse {
   id: string;
@@ -25,18 +28,39 @@ export async function GET(request: NextRequest) {
     >`
       SELECT id, name, image
       FROM users
-      WHERE image IS NOT NULL AND image != ''
       ORDER BY RANDOM()
       LIMIT ${limit}
     `;
 
-    const avatars: AvatarResponse[] = users
-      .filter((u) => u.image)
-      .map((u) => ({
-        id: u.id,
-        name: u.name || 'Usuario',
-        image: `/api/avatars/${u.id}/${size}`, // ruta de tu estructura
-      }));
+    const avatars: AvatarResponse[] = await Promise.all(
+      users.map(async (u) => {
+        let imageUrl: string;
+        
+        if (u.image) {
+          try {
+            // Generar URL directa de Supabase
+            imageUrl = await ensureAvatarInStorage({
+              userId: u.id,
+              upstreamUrl: u.image,
+              size: size as AvatarSize,
+            });
+          } catch (error) {
+            console.error(`Error processing avatar for user ${u.id}:`, error);
+            // Fallback a avatar por defecto
+            imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&size=${SIZE_MAP[size as AvatarSize]}&background=random&color=fff&format=png`;
+          }
+        } else {
+          // Usuario sin imagen - generar avatar por defecto
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&size=${SIZE_MAP[size as AvatarSize]}&background=random&color=fff&format=png`;
+        }
+        
+        return {
+          id: u.id,
+          name: u.name || 'Usuario',
+          image: imageUrl, // URL directa, no proxy
+        };
+      })
+    );
 
     const payload: ApiResponse = { avatars, total: avatars.length, timestamp: Date.now() };
 

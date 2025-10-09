@@ -20,18 +20,18 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
           <form className="p-6 md:p-8">
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
-                <p className="text-muted-foreground text-balance">Login to your Acme Inc account</p>
+                <h1 className="text-2xl font-bold">Bienvenido de vuelta</h1>
+                <p className="text-muted-foreground text-balance">Inicia sesión en Conacad</p>
               </div>
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="m@example.com" required />
+                <Input id="email" type="email" placeholder="pedro@example.com" required />
               </div>
               <div className="grid gap-3">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                   <a href="#" className="ml-auto text-sm underline-offset-2 hover:underline">
-                    Forgot your password?
+                    ¿Olvidaste tu contraseña?
                   </a>
                 </div>
                 <Input id="password" type="password" required />
@@ -41,7 +41,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               </Button>
               <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                 <span className="bg-card text-muted-foreground relative z-10 px-2">
-                  Or continue with
+                  O continua con
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4">

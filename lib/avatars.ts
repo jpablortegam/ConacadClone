@@ -85,11 +85,17 @@ export async function ensureAvatarInStorage(params: {
   // Hash del original (sirve como versión)
   const hash = contentHash(original);
 
-  // Si el hash coincide, no re-subimos — devolvemos URL con ?v=
+  // Si el hash coincide, verificar que el archivo existe antes de devolver la URL
   const prevHash = await getStoredHash(dir);
   const urlBase = publicUrl(objectPath);
   if (prevHash === hash) {
-    return `${urlBase}?v=${hash}`;
+    // Verificar que el archivo realmente existe
+    const { data, error } = await supabaseServer.storage.from('avatars').download(objectPath);
+    if (!error && data) {
+      return `${urlBase}?v=${hash}`;
+    }
+    // Si no existe, continuar con la re-subida
+    console.log(`File ${objectPath} not found, re-uploading...`);
   }
 
   // Redimensionar + convertir a WebP real

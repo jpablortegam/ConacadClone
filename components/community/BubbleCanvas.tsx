@@ -343,7 +343,7 @@ const BubbleCanvas: React.FC<BubbleCanvasProps> = ({ userProfiles, isReady }) =>
   }, [isReady]);
 
   // Sistema de colisiones con grid espacial
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const handleCollisions = (
     normalBubbles: Bubble[],
     w: number,
